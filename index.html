@@ -68,9 +68,11 @@
                 
                 const vibrationEl = document.getElementById('vibration');
                 const vibrationCard = document.getElementById('vibration-card');
+                // Gan gia tri so len web truoc
+                vibrationEl.innerText = vibrationZ;
+                // kiem tra dieu kien de doi mau
 
                 if (Math.abs(vibrationZ - mucTinh) > nguongLech) {
-                    vibrationEl.innerText = vibrationZ + " ⚠️";
                     vibrationEl.style.color = "#ef4444";
                     vibrationCard.classList.add('alert');
                 } else {
@@ -92,9 +94,9 @@
                 
                 const gasEl = document.getElementById('gas');
                 const gasCard = document.getElementById('gas-card');
+                gasEl.innerText = gasLevel; // chi gan so
 
                 if (gasLevel > nguongGasMax) {
-                    gasEl.innerText = gasLevel + " ⚠️";
                     gasEl.style.color = "#ef4444";
                     gasCard.classList.add('alert');
                 } else {
