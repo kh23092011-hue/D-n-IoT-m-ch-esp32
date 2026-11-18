@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trạm Giám Sát An Toàn IoT - ESP32</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f172a; color: #f8fafc; text-align: center; padding: 30px; }
+        .card-container { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-top: 30px; }
+        .card { background: #1e293b; padding: 25px; border-radius: 12px; width: 240px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border-top: 4px solid #3b82f6; }
+        .card h3 { margin: 0 0 10px 0; color: #94a3b8; font-size: 1.1rem; }
+        .value { font-size: 2rem; font-weight: bold; color: #38bdf8; }
+        .alert { border-top-color: #ef4444 !important; color: #ef4444 !important; }
+    </style>
+</head>
+<body>
+
+    <h1>Trạm Cảnh Báo Sớm IoT</h1>
+    <p>Dữ liệu cập nhật trực tiếp từ ESP32 qua Firebase</p>
+
+    <div class="card-container">
+        <div class="card">
+            <h3>Rung Chấn (Trục Z)</h3>
+            <div id="vibration" class="value">--</div>
+        </div>
+        <div class="card">
+            <h3>Nồng Độ Khí Gas</h3>
+            <div id="gas" class="value">--</div>
+        </div>
+        <div class="card" id="fireCard">
+            <h3>Cảnh Báo Lửa</h3>
+            <div id="fire" class="value">--</div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            databaseURL: "https://dong-dat-esp32-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const dbRef = firebase.database().ref('SensorData');
+
+        dbRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                document.getElementById('vibration').innerText = data.VibrationZ ?? '--';
+                document.getElementById('gas').innerText = data.GasLevel ?? '--';
+                
+                const fireVal = data.FireAlert;
+                const fireElement = document.getElementById('fire');
+                const fireCard = document.getElementById('fireCard');
+
+                if (fireVal == 1 || fireVal === true) {
+                    fireElement.innerText = "CÓ CHÁY! 🔥";
+                    fireCard.classList.add('alert');
+                } else {
+                    fireElement.innerText = "An Toàn ✅";
+                    fireCard.classList.remove('alert');
+                }
+            }
+        });
+    </script>
+</body>
+</html>
+
