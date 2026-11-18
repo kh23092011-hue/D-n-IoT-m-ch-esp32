@@ -43,7 +43,7 @@ void loop() {
     int16_t AcZ = Wire.read() << 8 | Wire.read();
 
     int gasValue = analogRead(MQ2_AnalogPin);
-    bool isFire = digitalRead(FlamePin); 
+    bool isFire = !digitalRead(FlamePin); 
 
     // Tạo chuỗi JSON gửi lên Firebase
     String jsonPayload = "{";
