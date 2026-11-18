@@ -11,9 +11,10 @@
         body { font-family: Arial, sans-serif; background-color: #0f172a; color: #f8fafc; text-align: center; padding: 20px; }
         h1 { color: #38bdf8; }
         .card-container { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-top: 30px; }
-        .card { background: #1e293b; padding: 20px; border-radius: 12px; width: 220px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border-top: 4px solid #38bdf8; }
+        .card { background: #1e293b; padding: 20px; border-radius: 12px; width: 220px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border-top: 4px solid #38bdf8; transition: 0.3s; }
         .card h3 { margin: 0 0 10px 0; color: #94a3b8; font-size: 1.1rem; }
         .value { font-size: 1.8rem; font-weight: bold; color: #38bdf8; }
+        /* Đổi màu đỏ rực và viền đỏ hẳn khi kích hoạt cảnh báo */
         .alert { border-top-color: #ef4444 !important; background-color: #7f1d1d !important; }
     </style>
 </head>
@@ -43,7 +44,7 @@
     </div>
 
     <script>
-        // Cấu hình kết nối Firebase Realtime Database
+        // Cấu hình Firebase Realtime Database
         const firebaseConfig = {
             databaseURL: "https://dong-dat-esp32-default-rtdb.asia-southeast1.firebasedatabase.app/"
         };
@@ -53,66 +54,47 @@
         dbRef.on('value', (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                // ==========================================
-                // 1. XỬ LÝ RUNG CHẤN (MPU6050 - Trục Z)
-                // ==========================================
-                const vibrationZ = data.VibrationZ !== undefined ? data.VibrationZ : 12980;
-                
-                // [CHÚ THÍCH CHO ÔNG CHỈNH]:
-                // - mucTinh: Giá trị gốc lúc để yên trên bàn (hiện tại của ông là 12980).
-                // - nguongLech: Độ lệch cho phép. Nếu (giá trị thực tế - mucTinh) vượt quá số này sẽ báo động.
-                //   -> Muốn nhạy hơn (rung nhẹ đã kêu): Giảm số này xuống (vd: 800 hoặc 1000).
-                //   -> Muốn cứng hơn (lắc mạnh mới kêu): Tăng số này lên (vd: 2000).
+                // 1. XỬ LÝ RUNG CHẤN (MPU6050)
+                const vibrationZ = data.VibrationZ !== undefined ? Number(data.VibrationZ) : 12980;
                 const mucTinh = 12980;
                 const nguongLech = 1000; 
                 
                 const vibrationEl = document.getElementById('vibration');
                 const vibrationCard = document.getElementById('vibration-card');
-                // Gan gia tri so len web truoc
+                
                 vibrationEl.innerText = vibrationZ;
-                // kiem tra dieu kien de doi mau
 
                 if (Math.abs(vibrationZ - mucTinh) > nguongLech) {
                     vibrationEl.style.color = "#ef4444";
                     vibrationCard.classList.add('alert');
                 } else {
-                    vibrationEl.innerText = vibrationZ;
                     vibrationEl.style.color = "#38bdf8";
                     vibrationCard.classList.remove('alert');
                 }
 
-                // ==========================================
-                // 2. XỬ LÝ NỒNG ĐỘ KHÍ GAS (MQ-2)
-                // ==========================================
-                const gasLevel = data.GasLevel !== undefined ? data.GasLevel : 0;
-                
-                // [CHÚ THÍCH CHO ÔNG CHỈNH]:
-                // - nguongGasMax: Mức nồng độ khí gas tối đa cho phép.
-                //   -> Nếu môi trường bình thường gas quanh ~600-700, khi có gas rò rỉ nó sẽ vọt lên.
-                //   -> Ông có thể đổi số 800 này thành mức cao hơn/thấp hơn tùy thực tế test thử.
+                // 2. XỬ LÝ KHÍ GAS (MQ-2)
+                const gasLevel = data.GasLevel !== undefined ? Number(data.GasLevel) : 0;
                 const nguongGasMax = 800;
                 
                 const gasEl = document.getElementById('gas');
                 const gasCard = document.getElementById('gas-card');
-                gasEl.innerText = gasLevel; // chi gan so
+
+                gasEl.innerText = gasLevel;
 
                 if (gasLevel > nguongGasMax) {
                     gasEl.style.color = "#ef4444";
                     gasCard.classList.add('alert');
                 } else {
-                    gasEl.innerText = gasLevel;
                     gasEl.style.color = "#38bdf8";
                     gasCard.classList.remove('alert');
                 }
 
-                // ==========================================
                 // 3. XỬ LÝ CẢNH BÁO LỬA
-                // ==========================================
                 const fireVal = data.FireAlert;
                 const fireElement = document.getElementById('fire');
                 const fireCard = document.getElementById('fireCard');
 
-                if (fireVal == 1 || fireVal === true) {
+                if (fireVal == 1 || fireVal === true || fireVal === "1") {
                     fireElement.innerText = "CÓ CHÁY! 🔥";
                     fireCard.classList.add('alert');
                 } else {
