@@ -1,108 +1,318 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trạm Giám Sát An Toàn</title>
-    <!-- Firebase App (compat mode) -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-    <style>
-        body { font-family: Arial, sans-serif; background-color: #0f172a; color: #f8fafc; text-align: center; padding: 20px; }
-        h1 { color: #38bdf8; }
-        .card-container { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-top: 30px; }
-        .card { background: #1e293b; padding: 20px; border-radius: 12px; width: 220px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border-top: 4px solid #38bdf8; transition: 0.3s; }
-        .card h3 { margin: 0 0 10px 0; color: #94a3b8; font-size: 1.1rem; }
-        .value { font-size: 1.8rem; font-weight: bold; color: #38bdf8; }
-        /* Đổi màu đỏ rực và viền đỏ hẳn khi kích hoạt cảnh báo */
-        .alert { border-top-color: #ef4444 !important; background-color: #7f1d1d !important; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Giám sát mô hình - SensorData</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --ok: #16a34a;
+      --alarm: #dc2626;
+      --alarm-bg: #450a0a;
+      --border: #334155;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      background: var(--bg);
+      color: var(--text);
+      transition: background-color 0.2s ease;
+    }
+
+    body.is-alarm {
+      background: var(--alarm-bg);
+    }
+
+    .container {
+      max-width: 820px;
+      margin: 0 auto;
+    }
+
+    .banner {
+      padding: 16px 20px;
+      border-radius: 12px;
+      background: var(--ok);
+      font-weight: 700;
+      font-size: 1.1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .banner.alarm {
+      background: var(--alarm);
+      animation: pulse 0.9s infinite alternate;
+    }
+
+    @keyframes pulse {
+      from { filter: brightness(1); }
+      to { filter: brightness(1.22); }
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .card.alert-card {
+      border-color: #f87171;
+      box-shadow: 0 0 0 1px #f87171 inset;
+    }
+
+    .label {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 6px;
+    }
+
+    .value {
+      font-size: 1.75rem;
+      font-weight: 700;
+    }
+
+    .sub {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-top: 6px;
+    }
+
+    .controls {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 12px;
+      align-items: end;
+    }
+
+    label.field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    input {
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #0f172a;
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+
+    .meta {
+      margin-top: 12px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+  </style>
 </head>
 <body>
-
-    <h1>Trạm Cảnh Báo Sớm IoT</h1>
-    <p>Dữ liệu cập nhật trực tiếp từ ESP32 qua Firebase</p>
-
-    <div class="card-container">
-        <!-- Thẻ Rung Chấn -->
-        <div class="card" id="vibration-card">
-            <h3>Rung Chấn (Trục Z)</h3>
-            <div id="vibration" class="value">--</div>
-        </div>
-
-        <!-- Thẻ Khí Gas -->
-        <div class="card" id="gas-card">
-            <h3>Nồng Độ Khí Gas</h3>
-            <div id="gas" class="value">--</div>
-        </div>
-
-        <!-- Thẻ Cảnh Báo Lửa -->
-        <div class="card" id="fireCard">
-            <h3>Cảnh Báo Lửa</h3>
-            <div id="fire" class="value">--</div>
-        </div>
+  <div class="container">
+    <div id="alarmBanner" class="banner">
+      <span id="alarmText">TRẠNG THÁI BÌNH THƯỜNG</span>
+      <span id="alarmReason">Không có cảnh báo</span>
     </div>
 
-    <script>
-        // Cấu hình Firebase Realtime Database
-        const firebaseConfig = {
-            databaseURL: "https://dong-dat-esp32-default-rtdb.asia-southeast1.firebasedatabase.app/"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const dbRef = firebase.database().ref('SensorData');
+    <div class="grid">
+      <div id="tiltCard" class="card">
+        <div class="label">Góc nghiêng ước lượng (từ AcZ)</div>
+        <div id="tiltValue" class="value">0.00°</div>
+        <div id="aczSub" class="sub">VibrationZ: -- (Mốc tĩnh: 16500)</div>
+      </div>
 
-        dbRef.on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                // 1. XỬ LÝ RUNG CHẤN (MPU6050)
-                const vibrationZ = data.VibrationZ !== undefined ? Number(data.VibrationZ) : 12980;
-                const mucTinh = 12980;
-                const nguongLech = 1000; 
-                
-                const vibrationEl = document.getElementById('vibration');
-                const vibrationCard = document.getElementById('vibration-card');
-                
-                vibrationEl.innerText = vibrationZ;
+      <div id="gasCard" class="card">
+        <div class="label">Nồng độ khí / Gas (MQ-2)</div>
+        <div id="gasValue" class="value">--</div>
+        <div class="sub">Đo qua ADC1 GPIO 34</div>
+      </div>
 
-                if (Math.abs(vibrationZ - mucTinh) > nguongLech) {
-                    vibrationEl.style.color = "#ef4444";
-                    vibrationCard.classList.add('alert');
-                } else {
-                    vibrationEl.style.color = "#38bdf8";
-                    vibrationCard.classList.remove('alert');
-                }
+      <div id="fireCard" class="card">
+        <div class="label">Cảm biến lửa (IR)</div>
+        <div id="fireValue" class="value">--</div>
+        <div class="sub">Chân tín hiệu: GPIO 15</div>
+      </div>
+    </div>
 
-                // 2. XỬ LÝ KHÍ GAS (MQ-2)
-                const gasLevel = data.GasLevel !== undefined ? Number(data.GasLevel) : 0;
-                const nguongGasMax = 800;
-                
-                const gasEl = document.getElementById('gas');
-                const gasCard = document.getElementById('gas-card');
+    <div class="controls">
+      <label class="field">
+        Mốc AcZ tĩnh (1g)
+        <input id="staticRefInput" type="number" value="16500" step="50" />
+      </label>
+      <label class="field">
+        Ngưỡng góc cảnh báo (°)
+        <input id="tiltThreshInput" type="number" value="15" min="1" max="85" step="1" />
+      </label>
+      <label class="field">
+        Ngưỡng Gas (MQ-2)
+        <input id="gasThreshInput" type="number" value="1800" step="50" />
+      </label>
+      <label class="field">
+        Chu kỳ cập nhật (ms)
+        <input id="pollMsInput" type="number" value="600" min="250" max="5000" step="100" />
+      </label>
+    </div>
 
-                gasEl.innerText = gasLevel;
+    <div class="meta">
+      <span id="connStatus">Đang kết nối Firebase...</span>
+      <span id="lastUpdate">Cập nhật lần cuối: --</span>
+    </div>
+  </div>
 
-                if (gasLevel > nguongGasMax) {
-                    gasEl.style.color = "#ef4444";
-                    gasCard.classList.add('alert');
-                } else {
-                    gasEl.style.color = "#38bdf8";
-                    gasCard.classList.remove('alert');
-                }
+  <script>
+    const DB_JSON_URL = "https://dong-dat-esp32-default-rtdb.asia-southeast1.firebasedatabase.app/SensorData.json";
 
-                // 3. XỬ LÝ CẢNH BÁO LỬA
-                const fireVal = data.FireAlert;
-                const fireElement = document.getElementById('fire');
-                const fireCard = document.getElementById('fireCard');
+    const el = {
+      body: document.body,
+      banner: document.getElementById("alarmBanner"),
+      alarmText: document.getElementById("alarmText"),
+      alarmReason: document.getElementById("alarmReason"),
+      tiltCard: document.getElementById("tiltCard"),
+      gasCard: document.getElementById("gasCard"),
+      fireCard: document.getElementById("fireCard"),
+      tiltValue: document.getElementById("tiltValue"),
+      aczSub: document.getElementById("aczSub"),
+      gasValue: document.getElementById("gasValue"),
+      fireValue: document.getElementById("fireValue"),
+      staticRefInput: document.getElementById("staticRefInput"),
+      tiltThreshInput: document.getElementById("tiltThreshInput"),
+      gasThreshInput: document.getElementById("gasThreshInput"),
+      pollMsInput: document.getElementById("pollMsInput"),
+      connStatus: document.getElementById("connStatus"),
+      lastUpdate: document.getElementById("lastUpdate"),
+    };
 
-                if (fireVal == 1 || fireVal === true || fireVal === "1") {
-                    fireElement.innerText = "CÓ CHÁY! 🔥";
-                    fireCard.classList.add('alert');
-                } else {
-                    fireElement.innerText = "An Toàn ✅";
-                    fireCard.classList.remove('alert');
-                }
-            }
-        });
-    </script>
+    const recentAcZ = [];
+    const MAX_SMOOTH = 4;
+    let timerId = null;
+
+    function smoothAcZ(rawVal) {
+      recentAcZ.push(rawVal);
+      if (recentAcZ.length > MAX_SMOOTH) {
+        recentAcZ.shift();
+      }
+      const sum = recentAcZ.reduce((acc, n) => acc + n, 0);
+      return sum / recentAcZ.length;
+    }
+
+    function calcTiltDeg(aczVal, staticRef) {
+      if (!Number.isFinite(aczVal) || !Number.isFinite(staticRef) || staticRef === 0) {
+        return 0;
+      }
+      const azG = aczVal / staticRef;
+      const clamped = Math.max(-1, Math.min(1, azG));
+      return (Math.acos(clamped) * 180) / Math.PI;
+    }
+
+    function parseFire(val) {
+      if (typeof val === "boolean") return val;
+      if (typeof val === "number") return val !== 0;
+      if (typeof val === "string") {
+        const s = val.trim().toLowerCase();
+        return s === "1" || s === "true" || s === "fire" || s === "detected";
+      }
+      return false;
+    }
+
+    function renderData(data) {
+      if (!data || typeof data !== "object") return;
+
+      const staticRef = Number(el.staticRefInput.value) || 16500;
+      const tiltThresh = Number(el.tiltThreshInput.value) || 15;
+      const gasThresh = Number(el.gasThreshInput.value) || 1800;
+
+      const rawZ = Number(data.VibrationZ ?? data.acz ?? data.az ?? 0);
+      const gasVal = Number(data.GasLevel ?? data.mq2 ?? data.gas ?? 0);
+      const isFire = parseFire(data.FireAlert ?? data.fire ?? 0);
+
+      const avgZ = smoothAcZ(rawZ);
+      const tiltDeg = calcTiltDeg(avgZ, staticRef);
+
+      const tiltAlarm = tiltDeg >= tiltThresh;
+      const gasAlarm = gasVal >= gasThresh;
+      const anyAlarm = tiltAlarm || gasAlarm || isFire;
+
+      el.tiltValue.textContent = `${tiltDeg.toFixed(2)}°`;
+      el.aczSub.textContent = `VibrationZ: ${Math.round(rawZ)} (Lọc: ${Math.round(avgZ)} | Mốc: ${staticRef})`;
+      el.gasValue.textContent = Number.isFinite(gasVal) ? Math.round(gasVal) : "--";
+      el.fireValue.textContent = isFire ? "CÓ LỬA" : "Bình thường";
+
+      el.tiltCard.classList.toggle("alert-card", tiltAlarm);
+      el.gasCard.classList.toggle("alert-card", gasAlarm);
+      el.fireCard.classList.toggle("alert-card", isFire);
+
+      el.body.classList.toggle("is-alarm", anyAlarm);
+      el.banner.classList.toggle("alarm", anyAlarm);
+
+      if (anyAlarm) {
+        const reasons = [];
+        if (tiltAlarm) reasons.push(`Nghiêng ${tiltDeg.toFixed(1)}° >= ${tiltThresh}°`);
+        if (gasAlarm) reasons.push(`Gas ${Math.round(gasVal)} >= ${gasThresh}`);
+        if (isFire) reasons.push("Phát hiện lửa");
+
+        el.alarmText.textContent = "CẢNH BÁO NGUY HIỂM";
+        el.alarmReason.textContent = reasons.join(" • ");
+      } else {
+        el.alarmText.textContent = "TRẠNG THÁI BÌNH THƯỜNG";
+        el.alarmReason.textContent = "Tất cả chỉ số dưới ngưỡng";
+      }
+
+      el.lastUpdate.textContent = `Cập nhật lần cuối: ${new Date().toLocaleTimeString("vi-VN")}`;
+    }
+
+    async function fetchSensorData() {
+      try {
+        const res = await fetch(DB_JSON_URL, { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        el.connStatus.textContent = "Đã kết nối Firebase Realtime DB";
+        renderData(json);
+      } catch (err) {
+        el.connStatus.textContent = `Lỗi đọc dữ liệu: ${err.message}`;
+      }
+    }
+
+    function restartLoop() {
+      if (timerId) clearInterval(timerId);
+      const ms = Math.max(250, Number(el.pollMsInput.value) || 600);
+      fetchSensorData();
+      timerId = setInterval(fetchSensorData, ms);
+    }
+
+    el.pollMsInput.addEventListener("change", restartLoop);
+    [el.staticRefInput, el.tiltThreshInput, el.gasThreshInput].forEach((input) => {
+      input.addEventListener("input", () => fetchSensorData());
+    });
+
+    restartLoop();
+  </script>
 </body>
 </html>
