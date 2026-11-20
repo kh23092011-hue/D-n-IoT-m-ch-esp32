@@ -97,23 +97,69 @@
     </div>
   </div>
 
-  <script>
-  const ACZ_STATIC = 16500;
-  const TILT_THRESHOLD_DEG = 15; // Ngưỡng nghiêng báo đỏ (độ)
-  const GAS_THRESHOLD = 1800;     // Ngưỡng gas báo đỏ
+ <script>
+  const CONFIG = {
+    aczStatic: 16500,
+    tiltThresholdDeg: 10, // Hạ xuống 10° để dễ test khi nghiêng/rung mô hình
+    gasThreshold: 1800,
+    aczDeltaThreshold: 800 // Dự phòng báo động nếu |AcZ - 16500| vượt 800
+  };
 
-  // Hàm tính góc nghiêng chống lỗi NaN tuyệt đối
-  function calcTiltDeg(aczVal, staticRef = ACZ_STATIC) {
-    const raw = Math.abs(Number(aczVal) || 0);
-    if (raw === 0 || staticRef === 0) return 0;
+  function calcTiltDeg(aczVal, staticRef) {
+    const val = Number(aczVal);
+    if (!Number.isFinite(val) || !staticRef) return 0;
 
-    // Quy về tỷ lệ chuẩn, kẹp chặt trong khoảng [0, 1]
-    let ratio = raw / staticRef;
-    if (ratio > 1) ratio = 1 / ratio; // Nếu AcZ > 16500 do lực động, đảo tỷ lệ để acos không lỗi
+    // Tính tỷ lệ so với mốc tĩnh, ép chặt vào [0, 1] để acos không bao giờ ra NaN
+    const absVal = Math.abs(val);
+    const ratio = absVal <= staticRef ? absVal / staticRef : staticRef / absVal;
+    const clamped = Math.max(0, Math.min(1, ratio));
+    return (Math.acos(clamped) * 180) / Math.PI;
+  }
 
-    const clamped = Math.max(-1, Math.min(1, ratio));
-    const rad = Math.acos(clamped);
-    return (rad * 180) / Math.PI;
+  // BƯỚC 1: JS tính toán & so sánh ngưỡng trước, chưa đụng tới HTML
+  function evaluateSensors(data) {
+    const vibRaw = Number(data.VibrationZ ?? data.AcZ ?? data.acz ?? 0);
+    const gasRaw = Number(data.GasLevel ?? data.Gas ?? data.mq2 ?? 0);
+    const fireRaw = data.FireAlert ?? data.Fire ?? data.fire ?? 0;
+
+    const tiltDeg = calcTiltDeg(vibRaw, CONFIG.aczStatic);
+    const deltaAcZ = Math.abs(vibRaw - CONFIG.aczStatic);
+    const vibAlert = tiltDeg >= CONFIG.tiltThresholdDeg || deltaAcZ >= CONFIG.aczDeltaThreshold;
+
+    const gasAlert = gasRaw >= CONFIG.gasThreshold;
+    const fireAlert = fireRaw === 1 || fireRaw === "1" || fireRaw === true;
+
+    return {
+      vibText: `${vibRaw} (${tiltDeg.toFixed(1)}°)`,
+      vibAlert,
+      gasText: `${gasRaw}`,
+      gasAlert,
+      fireText: fireAlert ? "CÓ CHÁY! 🔥" : "An Toàn ✅",
+      fireAlert
+    };
+  }
+
+  // BƯỚC 2: Đẩy kết quả đã xử lý xong từ JS ra HTML
+  function applyCardState(valueEl, cardEl, text, isAlert) {
+    if (valueEl) valueEl.textContent = text;
+    if (cardEl) {
+      cardEl.classList.toggle("alert", Boolean(isAlert));
+    }
+  }
+
+  function renderToDom(state) {
+    const cards = document.querySelectorAll(".card");
+    const vibEl = document.getElementById("vibration") || cards[0]?.querySelector(".val, p, span");
+    const gasEl = document.getElementById("gas") || cards[1]?.querySelector(".val, p, span");
+    const fireEl = document.getElementById("fire") || cards[2]?.querySelector(".val, p, span");
+
+    const vibCard = document.getElementById("vibCard") || vibEl?.closest(".card") || cards[0];
+    const gasCard = document.getElementById("gasCard") || gasEl?.closest(".card") || cards[1];
+    const fireCard = document.getElementById("fireCard") || fireEl?.closest(".card") || cards[2];
+
+    applyCardState(vibEl, vibCard, state.vibText, state.vibAlert);
+    applyCardState(gasEl, gasCard, state.gasText, state.gasAlert);
+    applyCardState(fireEl, fireCard, state.fireText, state.fireAlert);
   }
 
   const firebaseConfig = {
@@ -121,55 +167,14 @@
   };
 
   firebase.initializeApp(firebaseConfig);
-  const dbRef = firebase.database().ref('SensorData');
+  const dbRef = firebase.database().ref("SensorData");
 
-  dbRef.on('value', (snapshot) => {
+  dbRef.on("value", (snapshot) => {
     const data = snapshot.val();
     if (!data) return;
 
-    // 1. Xử lý Rung / Nghiêng (AcZ)
-    const vibRaw = Number(data.VibrationZ ?? data.AcZ ?? 0);
-    const tiltDeg = calcTiltDeg(vibRaw, ACZ_STATIC);
-    
-    // Tìm thẻ chứa phần tử Rung Chấn (hỗ trợ cả id hoặc tìm theo card thứ 1)
-    const vibEl = document.getElementById('vibration') || document.querySelectorAll('.card .val')[0];
-    const vibCard = vibEl ? vibEl.closest('.card') : null;
-
-    if (vibEl) {
-      vibEl.innerText = `${vibRaw} (${tiltDeg.toFixed(1)}°)`;
-    }
-    
-    // Đổi màu đỏ nếu nghiêng >= 15 độ HOẶC AcZ vượt xa mốc tĩnh (+-2000 đơn vị)
-    const isVibAlert = tiltDeg >= TILT_THRESHOLD_DEG || Math.abs(vibRaw - ACZ_STATIC) > 2000;
-    if (vibCard) {
-      if (isVibAlert) vibCard.classList.add('alert');
-      else vibCard.classList.remove('alert');
-    }
-
-    // 2. Xử lý Gas (MQ-2)
-    const gasVal = Number(data.GasLevel ?? data.Gas ?? 0);
-    const gasEl = document.getElementById('gas') || document.querySelectorAll('.card .val')[1];
-    const gasCard = gasEl ? gasEl.closest('.card') : null;
-
-    if (gasEl) gasEl.innerText = gasVal;
-    if (gasCard) {
-      if (gasVal >= GAS_THRESHOLD) gasCard.classList.add('alert');
-      else gasCard.classList.remove('alert');
-    }
-
-    // 3. Xử lý Lửa (IR)
-    const fireVal = data.FireAlert ?? data.Fire;
-    const fireEl = document.getElementById('fire') || document.querySelectorAll('.card .val')[2];
-    const fireCard = document.getElementById('fireCard') || (fireEl ? fireEl.closest('.card') : null);
-
-    const isFire = (fireVal == 1 || fireVal === true);
-    if (fireEl) {
-      fireEl.innerText = isFire ? "CÓ CHÁY! 🔥" : "An Toàn ✅";
-    }
-    if (fireCard) {
-      if (isFire) fireCard.classList.add('alert');
-      else fireCard.classList.remove('alert');
-    }
+    const computedState = evaluateSensors(data);
+    renderToDom(computedState);
   });
 </script>
 </body>
