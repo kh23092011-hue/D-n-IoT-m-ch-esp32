@@ -98,75 +98,79 @@
   </div>
 
   <script>
-    const ACZ_STATIC = 16500;
-    const TILT_THRESHOLD_DEG = 15;
-    const GAS_THRESHOLD = 1800;
+  const ACZ_STATIC = 16500;
+  const TILT_THRESHOLD_DEG = 15; // Ngưỡng nghiêng báo đỏ (độ)
+  const GAS_THRESHOLD = 1800;     // Ngưỡng gas báo đỏ
 
-    function calcTiltDeg(aczVal, staticRef = ACZ_STATIC) {
-      const num = Number(aczVal);
-      if (!Number.isFinite(num) || staticRef === 0) return 0;
-      const clamped = Math.max(-1, Math.min(1, num / staticRef));
-      return (Math.acos(clamped) * 180) / Math.PI;
+  // Hàm tính góc nghiêng chống lỗi NaN tuyệt đối
+  function calcTiltDeg(aczVal, staticRef = ACZ_STATIC) {
+    const raw = Math.abs(Number(aczVal) || 0);
+    if (raw === 0 || staticRef === 0) return 0;
+
+    // Quy về tỷ lệ chuẩn, kẹp chặt trong khoảng [0, 1]
+    let ratio = raw / staticRef;
+    if (ratio > 1) ratio = 1 / ratio; // Nếu AcZ > 16500 do lực động, đảo tỷ lệ để acos không lỗi
+
+    const clamped = Math.max(-1, Math.min(1, ratio));
+    const rad = Math.acos(clamped);
+    return (rad * 180) / Math.PI;
+  }
+
+  const firebaseConfig = {
+    databaseURL: "https://dong-dat-esp32-default-rtdb.asia-southeast1.firebasedatabase.app/"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const dbRef = firebase.database().ref('SensorData');
+
+  dbRef.on('value', (snapshot) => {
+    const data = snapshot.val();
+    if (!data) return;
+
+    // 1. Xử lý Rung / Nghiêng (AcZ)
+    const vibRaw = Number(data.VibrationZ ?? data.AcZ ?? 0);
+    const tiltDeg = calcTiltDeg(vibRaw, ACZ_STATIC);
+    
+    // Tìm thẻ chứa phần tử Rung Chấn (hỗ trợ cả id hoặc tìm theo card thứ 1)
+    const vibEl = document.getElementById('vibration') || document.querySelectorAll('.card .val')[0];
+    const vibCard = vibEl ? vibEl.closest('.card') : null;
+
+    if (vibEl) {
+      vibEl.innerText = `${vibRaw} (${tiltDeg.toFixed(1)}°)`;
+    }
+    
+    // Đổi màu đỏ nếu nghiêng >= 15 độ HOẶC AcZ vượt xa mốc tĩnh (+-2000 đơn vị)
+    const isVibAlert = tiltDeg >= TILT_THRESHOLD_DEG || Math.abs(vibRaw - ACZ_STATIC) > 2000;
+    if (vibCard) {
+      if (isVibAlert) vibCard.classList.add('alert');
+      else vibCard.classList.remove('alert');
     }
 
-    const firebaseConfig = {
-      databaseURL: "https://dong-dat-esp32-default-rtdb.asia-southeast1.firebasedatabase.app/"
-    };
+    // 2. Xử lý Gas (MQ-2)
+    const gasVal = Number(data.GasLevel ?? data.Gas ?? 0);
+    const gasEl = document.getElementById('gas') || document.querySelectorAll('.card .val')[1];
+    const gasCard = gasEl ? gasEl.closest('.card') : null;
 
-    firebase.initializeApp(firebaseConfig);
-    const dbRef = firebase.database().ref('SensorData');
+    if (gasEl) gasEl.innerText = gasVal;
+    if (gasCard) {
+      if (gasVal >= GAS_THRESHOLD) gasCard.classList.add('alert');
+      else gasCard.classList.remove('alert');
+    }
 
-    dbRef.on('value', (snapshot) => {
-      const data = snapshot.val();
-      if (!data) return;
+    // 3. Xử lý Lửa (IR)
+    const fireVal = data.FireAlert ?? data.Fire;
+    const fireEl = document.getElementById('fire') || document.querySelectorAll('.card .val')[2];
+    const fireCard = document.getElementById('fireCard') || (fireEl ? fireEl.closest('.card') : null);
 
-      // 1. Rung / Độ nghiêng từ VibrationZ (mốc tĩnh 16500)
-      const vibRaw = Number(data.VibrationZ ?? 0);
-      const tiltDeg = calcTiltDeg(vibRaw, ACZ_STATIC);
-      const vibEl = document.getElementById('vibration');
-      const vibStatus = document.getElementById('vibStatus');
-      const vibCard = document.getElementById('vibCard');
-
-      vibEl.innerText = `${vibRaw} (${tiltDeg.toFixed(1)}°)`;
-      if (tiltDeg >= TILT_THRESHOLD_DEG) {
-        vibStatus.innerText = `CẢNH BÁO NGHIÊNG! (≥ ${TILT_THRESHOLD_DEG}°)`;
-        vibCard.classList.add('alert');
-      } else {
-        vibStatus.innerText = "An Toàn ✅";
-        vibCard.classList.remove('alert');
-      }
-
-      // 2. GasLevel
-      const gasVal = Number(data.GasLevel ?? 0);
-      const gasEl = document.getElementById('gas');
-      const gasStatus = document.getElementById('gasStatus');
-      const gasCard = document.getElementById('gasCard');
-
-      gasEl.innerText = gasVal;
-      if (gasVal >= GAS_THRESHOLD) {
-        gasStatus.innerText = `CẢNH BÁO GAS CAO! (≥ ${GAS_THRESHOLD})`;
-        gasCard.classList.add('alert');
-      } else {
-        gasStatus.innerText = "An Toàn ✅";
-        gasCard.classList.remove('alert');
-      }
-
-      // 3. FireAlert
-      const fireVal = data.FireAlert;
-      const fireEl = document.getElementById('fire');
-      const fireStatus = document.getElementById('fireStatus');
-      const fireCard = document.getElementById('fireCard');
-
-      if (fireVal == 1 || fireVal === true) {
-        fireEl.innerText = "CÓ CHÁY! 🔥";
-        fireStatus.innerText = "CẢNH BÁO LỬA!";
-        fireCard.classList.add('alert');
-      } else {
-        fireEl.innerText = "Không có lửa";
-        fireStatus.innerText = "An Toàn ✅";
-        fireCard.classList.remove('alert');
-      }
-    });
-  </script>
+    const isFire = (fireVal == 1 || fireVal === true);
+    if (fireEl) {
+      fireEl.innerText = isFire ? "CÓ CHÁY! 🔥" : "An Toàn ✅";
+    }
+    if (fireCard) {
+      if (isFire) fireCard.classList.add('alert');
+      else fireCard.classList.remove('alert');
+    }
+  });
+</script>
 </body>
 </html>
