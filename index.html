@@ -3,179 +3,390 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Trạm Cảnh Báo Sớm IoT</title>
+  <title>Telemetry Console // MPU6050 - MQ2 - IR</title>
   <style>
+    /* Biến CSS phục vụ tính toán lượng giác trực tiếp bằng CSS */
+    :root {
+      --acz-ref: 16500;
+      --acz-abs: 16500;
+      --ratio: 1;
+      /* Góc nghiêng ước lượng (radian) tính từ arccos(ratio) trong CSS */
+      --tilt-rad: calc(acos(var(--ratio)));
+      /* Thành phần ngang ước lượng qua hàm sin() của CSS */
+      --horiz-mag: calc(var(--acz-ref) * sin(var(--tilt-rad)));
+      --acx-calc: calc(var(--horiz-mag) * 0.70710678);
+      --acy-calc: calc(var(--horiz-mag) * 0.70710678);
+
+      --bg-main: #090d16;
+      --bg-panel: #111827;
+      --bg-card: #161f30;
+      --border-dim: #243047;
+      --text-main: #e5edf8;
+      --text-muted: #8fa1bf;
+      --accent-cyan: #22d3ee;
+      --ok-green: #22c55e;
+      --warn-red: #ef4444;
+    }
+
     * {
       box-sizing: border-box;
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
     }
 
     body {
       margin: 0;
       padding: 24px;
-      background: #0f172a;
-      color: #f8fafc;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(34, 211, 238, 0.08), transparent 40%),
+        var(--bg-main);
+      color: var(--text-main);
     }
 
-    h1 {
-      margin: 0 0 6px;
-    }
-
-    p {
-      margin: 0 0 20px;
-      color: #94a3b8;
-    }
-
-    .card-container {
+    .topbar {
       display: flex;
-      gap: 16px;
+      justify-content: space-between;
+      align-items: center;
       flex-wrap: wrap;
+      gap: 12px;
+      padding: 16px 20px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-dim);
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+
+    .topbar h1 {
+      margin: 0;
+      font-size: 1.15rem;
+      letter-spacing: 0.5px;
+      color: var(--accent-cyan);
+    }
+
+    .topbar .meta {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .badge {
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      border: 1px solid rgba(34, 211, 238, 0.4);
+      background: rgba(34, 211, 238, 0.1);
+      color: var(--accent-cyan);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin-bottom: 18px;
     }
 
     .card {
-      flex: 1 1 220px;
-      background: #1e293b;
-      border: 2px solid #334155;
-      border-radius: 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-dim);
+      border-radius: 10px;
       padding: 18px;
-      transition: all 0.2s ease;
+      transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     }
 
-    .card h3 {
-      margin: 0 0 10px;
-      font-size: 1rem;
-      color: #cbd5e1;
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 10px;
     }
 
     .val {
-      font-size: 1.5rem;
+      font-size: 1.55rem;
       font-weight: 700;
+      color: #f8fafc;
+    }
+
+    .sub {
+      margin-top: 8px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
     }
 
     .status {
-      margin-top: 8px;
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: #4ade80;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border-dim);
+      font-size: 0.86rem;
+      font-weight: 700;
+      color: var(--ok-green);
     }
 
     .card.alert {
-      background: #450a0a;
-      border-color: #ef4444;
-      box-shadow: 0 0 16px rgba(239, 68, 68, 0.45);
+      background: #2a0c10;
+      border-color: var(--warn-red);
+      box-shadow: 0 0 18px rgba(239, 68, 68, 0.28);
     }
 
     .card.alert .val,
     .card.alert .status {
       color: #fca5a5;
     }
+
+    .trig-panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-dim);
+      border-radius: 10px;
+      padding: 18px;
+    }
+
+    .trig-panel h2 {
+      margin: 0 0 12px;
+      font-size: 0.95rem;
+      color: var(--accent-cyan);
+    }
+
+    .axes-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    .axis-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-dim);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .axis-box span {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .axis-box strong {
+      font-size: 1.15rem;
+      color: #f1f5f9;
+      margin-top: 4px;
+      display: block;
+    }
+
+    /* Minh họa trực quan độ nghiêng bằng CSS transform */
+    .vector-bar-wrap {
+      margin-top: 14px;
+      background: #0b111e;
+      border: 1px solid var(--border-dim);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .vector-indicator {
+      height: 6px;
+      margin-top: 8px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent-cyan), #38bdf8);
+      width: calc(min(100%, var(--tilt-rad) * 180 / 3.14159 * 2) * 1%);
+      transition: width 0.2s ease;
+    }
   </style>
+
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 </head>
 <body>
-  <h1>Trạm Cảnh Báo Sớm IoT</h1>
-  <p>Dữ liệu cập nhật trực tiếp từ ESP32 qua Firebase</p>
+  <div class="topbar">
+    <div>
+      <h1>MPU6050 // MQ-2 // IR TELEMETRY CONSOLE</h1>
+      <div class="meta">RTDB Node: <code>SensorData</code> · Ước lượng AcX, AcY qua lượng giác từ AcZ</div>
+    </div>
+    <div class="badge" id="connBadge">FIREBASE: CONNECTING</div>
+  </div>
 
-  <div class="card-container">
+  <div class="grid">
     <div class="card" id="vibCard">
-      <h3>Rung / Độ nghiêng (AcZ)</h3>
+      <div class="card-head">
+        <span>IMU · Trục AcZ</span>
+        <span>MPU6050</span>
+      </div>
       <div class="val" id="vibration">--</div>
-      <div class="status" id="vibStatus">--</div>
+      <div class="sub" id="tiltInfo">Góc nghiêng: --°</div>
+      <div class="status" id="vibStatus">Đang chờ dữ liệu...</div>
     </div>
 
     <div class="card" id="gasCard">
-      <h3>Khí Gas (MQ-2)</h3>
+      <div class="card-head">
+        <span>Khí Gas &amp; Khói</span>
+        <span>MQ-2</span>
+      </div>
       <div class="val" id="gas">--</div>
-      <div class="status" id="gasStatus">--</div>
+      <div class="sub">Ngưỡng cảnh báo: &gt;= 1800</div>
+      <div class="status" id="gasStatus">Đang chờ dữ liệu...</div>
     </div>
 
     <div class="card" id="fireCard">
-      <h3>Cảm biến lửa (IR)</h3>
+      <div class="card-head">
+        <span>Cảm Biến Lửa</span>
+        <span>IR Sensor</span>
+      </div>
       <div class="val" id="fire">--</div>
-      <div class="status" id="fireStatus">--</div>
+      <div class="sub">Tín hiệu số: 1 (Phát hiện lửa) / 0 (An toàn)</div>
+      <div class="status" id="fireStatus">Đang chờ dữ liệu...</div>
     </div>
   </div>
 
- <script>
-  const CONFIG = {
-    aczStatic: 16500,
-    tiltThresholdDeg: 10, // Hạ xuống 10° để dễ test khi nghiêng/rung mô hình
-    gasThreshold: 1800,
-    aczDeltaThreshold: 800 // Dự phòng báo động nếu |AcZ - 16500| vượt 800
-  };
+  <div class="trig-panel">
+    <h2>PHÂN TÍCH LƯỢNG GIÁC TỪ AcZ (AcX, AcY ƯỚC LƯỢNG)</h2>
+    <div class="axes-row">
+      <div class="axis-box">
+        <span>AcZ (Thực tế từ Firebase)</span>
+        <strong id="aczRawOut">--</strong>
+      </div>
+      <div class="axis-box">
+        <span>AcX (Ước lượng sin &amp; cos)</span>
+        <strong id="acxCalcOut">--</strong>
+      </div>
+      <div class="axis-box">
+        <span>AcY (Ước lượng sin &amp; cos)</span>
+        <strong id="acyCalcOut">--</strong>
+      </div>
+      <div class="axis-box">
+        <span>ΔAcZ = |AcZ - AcZ_ref|</span>
+        <strong id="deltaAcZOut">--</strong>
+      </div>
+    </div>
+    <div class="vector-bar-wrap">
+      <span>Mức độ lệch góc theo hàm lượng giác (CSS calc + acos + sin)</span>
+      <div class="vector-indicator"></div>
+    </div>
+  </div>
 
-  function calcTiltDeg(aczVal, staticRef) {
-    const val = Number(aczVal);
-    if (!Number.isFinite(val) || !staticRef) return 0;
-
-    // Tính tỷ lệ so với mốc tĩnh, ép chặt vào [0, 1] để acos không bao giờ ra NaN
-    const absVal = Math.abs(val);
-    const ratio = absVal <= staticRef ? absVal / staticRef : staticRef / absVal;
-    const clamped = Math.max(0, Math.min(1, ratio));
-    return (Math.acos(clamped) * 180) / Math.PI;
-  }
-
-  // BƯỚC 1: JS tính toán & so sánh ngưỡng trước, chưa đụng tới HTML
-  function evaluateSensors(data) {
-    const vibRaw = Number(data.VibrationZ ?? data.AcZ ?? data.acz ?? 0);
-    const gasRaw = Number(data.GasLevel ?? data.Gas ?? data.mq2 ?? 0);
-    const fireRaw = data.FireAlert ?? data.Fire ?? data.fire ?? 0;
-
-    const tiltDeg = calcTiltDeg(vibRaw, CONFIG.aczStatic);
-    const deltaAcZ = Math.abs(vibRaw - CONFIG.aczStatic);
-    const vibAlert = tiltDeg >= CONFIG.tiltThresholdDeg || deltaAcZ >= CONFIG.aczDeltaThreshold;
-
-    const gasAlert = gasRaw >= CONFIG.gasThreshold;
-    const fireAlert = fireRaw === 1 || fireRaw === "1" || fireRaw === true;
-
-    return {
-      vibText: `${vibRaw} (${tiltDeg.toFixed(1)}°)`,
-      vibAlert,
-      gasText: `${gasRaw}`,
-      gasAlert,
-      fireText: fireAlert ? "CÓ CHÁY! 🔥" : "An Toàn ✅",
-      fireAlert
+  <script>
+    // Các tham số có thể điều chỉnh theo thực tế mô hình của bạn
+    const CONFIG = {
+      aczStatic: 16500,        // Giá trị AcZ chuẩn khi nằm phẳng
+      tiltThresholdDeg: 10,    // Ngưỡng góc nghiêng cảnh báo (độ)
+      aczDeltaThreshold: 800,  // Ngưỡng chênh lệch AcZ cảnh báo
+      gasThreshold: 1800,      // Ngưỡng MQ-2 cảnh báo
+      splitX: Math.SQRT1_2,    // Hệ số chia trục X (0.70710678)
+      splitY: Math.SQRT1_2     // Hệ số chia trục Y (0.70710678)
     };
-  }
 
-  // BƯỚC 2: Đẩy kết quả đã xử lý xong từ JS ra HTML
-  function applyCardState(valueEl, cardEl, text, isAlert) {
-    if (valueEl) valueEl.textContent = text;
-    if (cardEl) {
-      cardEl.classList.toggle("alert", Boolean(isAlert));
+    // Tính góc nghiêng (độ và radian) cùng AcX, AcY bằng hàm lượng giác
+    function computeAxesFromAcZ(aczVal, cfg) {
+      const val = Number(aczVal);
+      if (!Number.isFinite(val) || !cfg.aczStatic) {
+        return { tiltDeg: 0, tiltRad: 0, ratio: 1, acx: 0, acy: 0, deltaAcZ: 0 };
+      }
+
+      const absVal = Math.abs(val);
+      const ratio = Math.max(0, Math.min(1, absVal <= cfg.aczStatic ? absVal / cfg.aczStatic : cfg.aczStatic / absVal));
+
+      // θ = arccos(ratio) (radian)
+      const tiltRad = Math.acos(ratio);
+      const tiltDeg = (tiltRad * 180) / Math.PI;
+
+      // Thành phần ngang = A_ref * sin(θ)
+      const horizMag = cfg.aczStatic * Math.sin(tiltRad);
+      const sign = val >= 0 ? 1 : -1;
+
+      const acx = Math.round(horizMag * cfg.splitX * sign);
+      const acy = Math.round(horizMag * cfg.splitY * sign);
+      const deltaAcZ = Math.round(Math.abs(val - cfg.aczStatic));
+
+      return { tiltDeg, tiltRad, ratio, acx, acy, deltaAcZ };
     }
-  }
 
-  function renderToDom(state) {
-    const cards = document.querySelectorAll(".card");
-    const vibEl = document.getElementById("vibration") || cards[0]?.querySelector(".val, p, span");
-    const gasEl = document.getElementById("gas") || cards[1]?.querySelector(".val, p, span");
-    const fireEl = document.getElementById("fire") || cards[2]?.querySelector(".val, p, span");
+    function evaluateSensors(data) {
+      const vibRaw = Number(data.VibrationZ ?? data.AcZ ?? data.acz ?? 0);
+      const gasRaw = Number(data.GasLevel ?? data.Gas ?? data.mq2 ?? 0);
+      const fireRaw = data.FireAlert ?? data.Fire ?? data.fire ?? 0;
 
-    const vibCard = document.getElementById("vibCard") || vibEl?.closest(".card") || cards[0];
-    const gasCard = document.getElementById("gasCard") || gasEl?.closest(".card") || cards[1];
-    const fireCard = document.getElementById("fireCard") || fireEl?.closest(".card") || cards[2];
+      const axes = computeAxesFromAcZ(vibRaw, CONFIG);
+      const vibAlert = axes.tiltDeg >= CONFIG.tiltThresholdDeg || axes.deltaAcZ >= CONFIG.aczDeltaThreshold;
+      const gasAlert = gasRaw >= CONFIG.gasThreshold;
+      const fireAlert = fireRaw === 1 || fireRaw === "1" || fireRaw === true;
 
-    applyCardState(vibEl, vibCard, state.vibText, state.vibAlert);
-    applyCardState(gasEl, gasCard, state.gasText, state.gasAlert);
-    applyCardState(fireEl, fireCard, state.fireText, state.fireAlert);
-  }
+      return {
+        vibRaw,
+        vibText: `${vibRaw}`,
+        tiltText: `Góc nghiêng: ${axes.tiltDeg.toFixed(1)}°`,
+        vibStatusText: vibAlert ? "CẢNH BÁO RUNG / NGHIÊNG" : "BÌNH THƯỜNG",
+        vibAlert,
 
-  const firebaseConfig = {
-    databaseURL: "https://dong-dat-esp32-default-rtdb.asia-southeast1.firebasedatabase.app/"
-  };
+        gasText: `${gasRaw}`,
+        gasStatusText: gasAlert ? "CẢNH BÁO KHÍ GAS CAO" : "BÌNH THƯỜNG",
+        gasAlert,
 
-  firebase.initializeApp(firebaseConfig);
-  const dbRef = firebase.database().ref("SensorData");
+        fireText: fireAlert ? "CÓ LỬA" : "AN TOÀN",
+        fireStatusText: fireAlert ? "CẢNH BÁO PHÁT HIỆN LỬA" : "BÌNH THƯỜNG",
+        fireAlert,
 
-  dbRef.on("value", (snapshot) => {
-    const data = snapshot.val();
-    if (!data) return;
+        axes
+      };
+    }
 
-    const computedState = evaluateSensors(data);
-    renderToDom(computedState);
-  });
-</script>
+    function setCard(cardId, valId, statusId, text, statusText, isAlert, subId, subText) {
+      const card = document.getElementById(cardId);
+      const valEl = document.getElementById(valId);
+      const statusEl = document.getElementById(statusId);
+      const subEl = subId ? document.getElementById(subId) : null;
+
+      if (valEl) valEl.textContent = text;
+      if (statusEl) statusEl.textContent = statusText;
+      if (subEl && subText) subEl.textContent = subText;
+      if (card) card.classList.toggle("alert", Boolean(isAlert));
+    }
+
+    function renderToDom(state) {
+      // Đồng bộ biến CSS để CSS tự tính toán lượng giác qua acos() và sin()
+      document.documentElement.style.setProperty("--acz-ref", String(CONFIG.aczStatic));
+      document.documentElement.style.setProperty("--ratio", String(state.axes.ratio));
+
+      setCard(
+        "vibCard", "vibration", "vibStatus",
+        state.vibText, state.vibStatusText, state.vibAlert,
+        "tiltInfo", state.tiltText
+      );
+
+      setCard(
+        "gasCard", "gas", "gasStatus",
+        state.gasText, state.gasStatusText, state.gasAlert
+      );
+
+      setCard(
+        "fireCard", "fire", "fireStatus",
+        state.fireText, state.fireStatusText, state.fireAlert
+      );
+
+      document.getElementById("aczRawOut").textContent = `${state.vibRaw}`;
+      document.getElementById("acxCalcOut").textContent = `${state.axes.acx}`;
+      document.getElementById("acyCalcOut").textContent = `${state.axes.acy}`;
+      document.getElementById("deltaAcZOut").textContent = `${state.axes.deltaAcZ}`;
+    }
+
+    const firebaseConfig = {
+      databaseURL: "https://dong-dat-esp32-default-rtdb.asia-southeast1.firebasedatabase.app/"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const badge = document.getElementById("connBadge");
+    const dbRef = firebase.database().ref("SensorData");
+
+    dbRef.on("value", (snapshot) => {
+      const data = snapshot.val();
+      badge.textContent = "FIREBASE: LIVE";
+      if (!data) return;
+
+      const computed = evaluateSensors(data);
+      renderToDom(computed);
+    }, () => {
+      badge.textContent = "FIREBASE: ERROR";
+    });
+  </script>
 </body>
 </html>
