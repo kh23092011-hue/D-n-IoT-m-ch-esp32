@@ -4,8 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Trạm Giám Sát Địa Chấn & Cháy Nổ ESP32</title>
-  
-  <!-- Firebase App & Database (phiên bản CDN cực nhẹ) -->
+
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
@@ -14,55 +13,49 @@
       --bg: #0f172a;
       --card: #1e293b;
       --text: #f8fafc;
+      --muted: #94a3b8;
       --accent: #38bdf8;
       --danger: #ef4444;
-      --warning: #f59e0b;
       --success: #10b981;
+      --border: #334155;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
-    body { background: var(--bg); color: var(--text); padding: 15px; display: flex; flex-direction: column; gap: 15px; }
+    body { background: var(--bg); color: var(--text); padding: 14px; display: flex; flex-direction: column; gap: 14px; }
 
-    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 10px; }
-    h1 { font-size: 1.2rem; color: var(--accent); }
-    
+    header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+    h1 { font-size: 1.15rem; color: var(--accent); }
+
     .btn-notif {
-      background: #334155; color: #fff; border: none; padding: 8px 12px;
-      border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: 0.2s;
+      background: var(--border); color: var(--text); border: 1px solid #475569;
+      padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;
     }
     .btn-notif:hover { background: #475569; }
 
-    /* Grid layout phản hồi nhanh */
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
-    .card { background: var(--card); border-radius: 8px; padding: 12px; text-align: center; border: 1px solid #334155; }
-    .card h3 { font-size: 0.8rem; color: #94a3b8; margin-bottom: 5px; }
-    .card .val { font-size: 1.5rem; font-weight: bold; color: var(--text); }
-    
-    /* Trạng thái báo động */
-    .status-box { padding: 10px; border-radius: 6px; font-weight: bold; text-align: center; font-size: 1.1rem; }
-    .status-normal { background: rgba(16, 185, 129, 0.2); color: var(--success); border: 1px solid var(--success); }
-    .status-alarm { background: rgba(239, 68, 68, 0.2); color: var(--danger); border: 1px solid var(--danger); animation: pulse 1s infinite alternate; }
+    .status-box { padding: 10px; border-radius: 6px; font-weight: bold; text-align: center; font-size: 1rem; }
+    .status-normal { background: rgba(16, 185, 129, 0.16); color: var(--success); border: 1px solid var(--success); }
+    .status-alarm { background: rgba(239, 68, 68, 0.2); color: var(--danger); border: 1px solid var(--danger); }
 
-    @keyframes pulse { from { opacity: 0.7; } to { opacity: 1; } }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+    .card { background: var(--card); border-radius: 8px; padding: 12px; text-align: center; border: 1px solid var(--border); }
+    .card h3 { font-size: 0.78rem; color: var(--muted); margin-bottom: 4px; }
+    .card .val { font-size: 1.45rem; font-weight: bold; }
 
-    /* Khung vẽ mô phỏng tòa nhà & đồ thị */
-    .view-section { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
-    .canvas-container { background: var(--card); border-radius: 8px; padding: 10px; border: 1px solid #334155; text-align: center; }
-    .canvas-container h4 { font-size: 0.85rem; color: #94a3b8; margin-bottom: 8px; }
-    canvas { background: #090d16; border-radius: 4px; width: 100%; height: 200px; }
+    .view-section { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 12px; }
+    .canvas-container { background: var(--card); border-radius: 8px; padding: 10px; border: 1px solid var(--border); text-align: center; }
+    .canvas-container h4 { font-size: 0.85rem; color: var(--muted); margin-bottom: 8px; }
+    canvas { background: #090d16; border-radius: 6px; width: 100%; height: 210px; display: block; }
   </style>
 </head>
 <body>
 
   <header>
-    <h1>HỆ THỐNG GIÁM SÁT ĐIỆN TỬ (ESP32)</h1>
+    <h1>HỆ THỐNG GIÁM SÁT RUNG CHẤN & CHÁY NỔ (ESP32)</h1>
     <button class="btn-notif" onclick="requestNotificationPermission()">🔔 Bật thông báo ĐTDĐ</button>
   </header>
 
-  <!-- Thẻ trạng thái tổng -->
   <div id="alarmStatus" class="status-box status-normal">AN TOÀN</div>
 
-  <!-- Grid thẻ chỉ số -->
   <div class="grid">
     <div class="card">
       <h3>GIA TỐC (a_xy)</h3>
@@ -78,15 +71,12 @@
     </div>
   </div>
 
-  <!-- Phần đồ thị và mô phỏng trực quan -->
   <div class="view-section">
-    <!-- Mô phỏng tòa nhà nghiêng theo thời gian thực -->
     <div class="canvas-container">
-      <h4>MÔ PHỎNG TÒA NHÀ (NGHIÊNG THEO RUNG ĐỘNG)</h4>
+      <h4>MÔ PHỎNG TÒA NHÀ RUNG LẮC 2 BÊN (THEO a_xy)</h4>
       <canvas id="buildingCanvas"></canvas>
     </div>
 
-    <!-- Đồ thị sóng dao động nhẹ cho máy yếu -->
     <div class="canvas-container">
       <h4>ĐỒ THỊ DAO ĐỘNG GIA TỐC (a_xy)</h4>
       <canvas id="chartCanvas"></canvas>
@@ -104,88 +94,120 @@
     const dbRef = firebase.database().ref("SensorData");
 
     // =========================================================================
-    // 2. KHỞI TẠO CANVAS (VẼ TÒA NHÀ & ĐỒ THỊ)
+    // 2. KHỞI TẠO CANVAS
     // =========================================================================
     const buildCanvas = document.getElementById('buildingCanvas');
     const bCtx = buildCanvas.getContext('2d');
     const chartCanvas = document.getElementById('chartCanvas');
     const cCtx = chartCanvas.getContext('2d');
 
-    // Set kích thước thực canvas
     function resizeCanvas() {
       buildCanvas.width = buildCanvas.clientWidth;
       buildCanvas.height = buildCanvas.clientHeight;
       chartCanvas.width = chartCanvas.clientWidth;
       chartCanvas.height = chartCanvas.clientHeight;
+      drawChart();
     }
     window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
-
-    let accHistory = new Array(50).fill(0); // Lưu 50 điểm dữ liệu đồ thị
-    let currentTiltAngle = 0; // Góc nghiêng quy đổi từ a_xy (radian hoặc độ)
 
     // =========================================================================
-    // 3. VẼ MÔ PHỎNG TÒA NHÀ NGHIÊNG (RENDER LOOP NHẸ MƯỢT)
+    // 3. MÔ PHỎNG TÒA NHÀ NGHIÊNG / RUNG LẮC 2 BÊN TỪ a_xy = sqrt(dx^2 + dy^2)
     // =========================================================================
+    let targetAmpDeg = 0;      // Biên độ góc nghiêng tối đa hai bên (độ)
+    let currentAngleDeg = 0;   // Góc nghiêng hiện tại (âm = trái, dương = phải)
+    let swayPhase = 0;         // Pha dao động hình sin
+    let isDangerShake = false;
+
     function drawBuilding(angleDeg) {
       const w = buildCanvas.width;
       const h = buildCanvas.height;
       bCtx.clearRect(0, 0, w, h);
 
-      // Vẽ mặt đất
+      const groundY = h - 24;
+      const baseX = w / 2;
+      const bWidth = 64;
+      const bHeight = 124;
+
+      // Vẽ mặt đất và vạch tâm thẳng đứng (0 độ) tham chiếu
       bCtx.strokeStyle = '#475569';
       bCtx.lineWidth = 2;
       bCtx.beginPath();
-      bCtx.moveTo(10, h - 20);
-      bCtx.lineTo(w - 10, h - 20);
+      bCtx.moveTo(14, groundY);
+      bCtx.lineTo(w - 14, groundY);
       bCtx.stroke();
 
-      // Tọa độ móng tòa nhà
-      const baseX = w / 2;
-      const baseY = h - 20;
-      const bWidth = 60;
-      const bHeight = 120;
-
       bCtx.save();
-      // Dời gốc tọa độ về tâm móng để xoay nghiêng
-      bCtx.translate(baseX, baseY);
-      bCtx.rotate((angleDeg * Math.PI) / 180); // Đổi độ sang Radian
+      bCtx.setLineDash([4, 4]);
+      bCtx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+      bCtx.lineWidth = 1;
+      bCtx.beginPath();
+      bCtx.moveTo(baseX, groundY);
+      bCtx.lineTo(baseX, groundY - bHeight - 16);
+      bCtx.stroke();
+      bCtx.restore();
 
-      // Vẽ thân tòa nhà
-      bCtx.fillStyle = '#334155';
-      bCtx.strokeStyle = '#38bdf8';
+      // Xoay quanh tâm móng
+      bCtx.save();
+      bCtx.translate(baseX, groundY);
+      bCtx.rotate((angleDeg * Math.PI) / 180);
+
+      const strokeCol = isDangerShake ? '#ef4444' : '#38bdf8';
+      const fillCol = isDangerShake ? '#3b1820' : '#1e293b';
+
+      bCtx.fillStyle = fillCol;
+      bCtx.strokeStyle = strokeCol;
       bCtx.lineWidth = 2;
       bCtx.fillRect(-bWidth / 2, -bHeight, bWidth, bHeight);
       bCtx.strokeRect(-bWidth / 2, -bHeight, bWidth, bHeight);
 
-      // Vẽ cửa sổ nhỏ
+      // Vẽ các tầng và cửa sổ
       bCtx.fillStyle = '#94a3b8';
-      for (let row = 1; row <= 4; row++) {
-        for (let col = -1; col <= 1; col += 2) {
-          bCtx.fillRect(col * 12 - 5, -bHeight + row * 22, 10, 12);
-        }
+      for (let row = 0; row < 4; row++) {
+        const yPos = -bHeight + 14 + row * 28;
+        bCtx.fillRect(-18, yPos, 11, 14);
+        bCtx.fillRect(7, yPos, 11, 14);
+      }
+      bCtx.restore();
+
+      // Hiển thị góc nghiêng tức thời
+      bCtx.fillStyle = isDangerShake ? '#ef4444' : '#38bdf8';
+      bCtx.font = 'bold 12px system-ui, sans-serif';
+      bCtx.textAlign = 'left';
+      const sign = angleDeg > 0.05 ? '+' : '';
+      bCtx.fillText(`Góc: ${sign}${angleDeg.toFixed(1)}°`, 12, 18);
+    }
+
+    function animateBuilding() {
+      if (targetAmpDeg > 0.15) {
+        swayPhase += 0.38;
+        currentAngleDeg = Math.sin(swayPhase) * targetAmpDeg;
+      } else {
+        currentAngleDeg *= 0.84;
+        if (Math.abs(currentAngleDeg) < 0.05) currentAngleDeg = 0;
       }
 
-      bCtx.restore();
+      drawBuilding(currentAngleDeg);
+      requestAnimationFrame(animateBuilding);
     }
 
     // =========================================================================
-    // 4. VẼ ĐỒ THỊ SÓNG RUNG ĐỘNG
+    // 4. ĐỒ THỊ SÓNG RUNG ĐỘNG NHẸ
     // =========================================================================
+    let accHistory = new Array(50).fill(0);
+
     function drawChart() {
       const w = chartCanvas.width;
       const h = chartCanvas.height;
       cCtx.clearRect(0, 0, w, h);
 
       cCtx.strokeStyle = '#38bdf8';
-      cCtx.lineWidth = 1.5;
+      cCtx.lineWidth = 1.6;
       cCtx.beginPath();
 
       const step = w / (accHistory.length - 1);
       for (let i = 0; i < accHistory.length; i++) {
-        // Ánh xạ a_xy (0.0 -> 1.0g) vào chiều cao canvas
-        const val = Math.min(accHistory[i], 1.0); 
-        const y = h - 10 - (val * (h - 20));
+        const val = Math.min(Math.max(accHistory[i], 0), 1.0);
+        const y = h - 12 - (val * (h - 24));
         const x = i * step;
         if (i === 0) cCtx.moveTo(x, y);
         else cCtx.lineTo(x, y);
@@ -193,8 +215,11 @@
       cCtx.stroke();
     }
 
+    resizeCanvas();
+    animateBuilding();
+
     // =========================================================================
-    // 5. ĐỒNG BỘ DỮ LIỆU TỪ FIREBASE REALTIME
+    // 5. ĐỒNG BỘ FIREBASE REALTIME
     // =========================================================================
     let lastAlarmState = false;
 
@@ -202,38 +227,35 @@
       const data = snapshot.val();
       if (!data) return;
 
-      const a_xy = data.a_xy || 0.0;
-      const mq2 = data.mq2 || 0;
-      const fire = data.fire || false;
-      const alarm = data.alarm || false;
+      const a_xy = Number(data.a_xy) || 0;
+      const mq2 = Number(data.mq2) || 0;
+      const fire = Boolean(data.fire);
+      const alarm = Boolean(data.alarm);
 
-      // Cập nhật thẻ HTML
       document.getElementById('valAcc').innerText = a_xy.toFixed(3) + ' g';
       document.getElementById('valMq2').innerText = mq2;
-      
+
       const fireEl = document.getElementById('valFire');
       fireEl.innerText = fire ? 'CÓ LỬA!' : 'KHÔNG';
       fireEl.style.color = fire ? 'var(--danger)' : 'var(--success)';
 
       const statusEl = document.getElementById('alarmStatus');
       if (alarm) {
-        statusEl.innerText = '⚠️ CẢNH BÁO BỎNG / ĐỘNG ĐẤT / NGUY HIỂM!';
+        statusEl.innerText = '⚠️ CẢNH BÁO RUNG CHẤN / KHÍ GAS / LỬA!';
         statusEl.className = 'status-box status-alarm';
       } else {
         statusEl.innerText = 'AN TOÀN';
         statusEl.className = 'status-box status-normal';
       }
 
-      // Tính góc nghiêng mô phỏng: 1g gia tốc ngang tương ứng nghiêng ~30 độ (quy đổi đơn giản)
-      currentTiltAngle = (a_xy * 40).toFixed(1); 
-      drawBuilding(currentTiltAngle);
+      // Quy đổi độ lớn a_xy sang biên độ lắc 2 bên (giới hạn tối đa 24 độ)
+      isDangerShake = a_xy >= 0.25 || alarm;
+      targetAmpDeg = a_xy < 0.03 ? 0 : Math.min(a_xy * 45, 24);
 
-      // Cập nhật đồ thị
       accHistory.push(a_xy);
       accHistory.shift();
       drawChart();
 
-      // Bật thông báo đẩy nếu chuyển trạng thái sang báo động
       if (alarm && !lastAlarmState) {
         sendPushNotification(a_xy, mq2, fire);
       }
@@ -241,30 +263,29 @@
     });
 
     // =========================================================================
-    // 6. THÔNG BÁO VỀ ĐIỆN THOẠI / TRÌNH DUYỆT (WEB NOTIFICATION API)
+    // 6. THÔNG BÁO TRÌNH DUYỆT / ĐIỆN THOẠI
     // =========================================================================
     function requestNotificationPermission() {
-      if ('Notification' in window) {
-        Notification.requestPermission().then(permission => {
-          if (permission === 'granted') {
-            alert('Đã bật quyền thông báo thành công!');
-          } else {
-            alert('Bạn đã từ chối quyền thông báo.');
-          }
-        });
-      } else {
+      if (!('Notification' in window)) {
         alert('Trình duyệt này không hỗ trợ thông báo Web.');
+        return;
       }
+      Notification.requestPermission().then((permission) => {
+        if (permission === 'granted') {
+          alert('Đã bật quyền thông báo thành công!');
+        } else {
+          alert('Quyền thông báo chưa được cấp.');
+        }
+      });
     }
 
     function sendPushNotification(acc, mq, isFire) {
       if ('Notification' in window && Notification.permission === 'granted') {
-        let text = `Gia tốc: ${acc}g | Gas: ${mq}`;
-        if (isFire) text += ' | CÓ LỬA!';
+        let bodyText = `Gia tốc: ${acc.toFixed(3)}g | Gas: ${mq}`;
+        if (isFire) bodyText += ' | CÓ LỬA!';
 
-        new Notification('🚨 NGUY HIỂM: CẢNH BÁO TỪ ESP32!', {
-          body: text,
-          icon: 'https://cdn-icons-png.flaticon.com/512/564/564619.png',
+        new Notification('🚨 CẢNH BÁO TỪ ESP32!', {
+          body: bodyText,
           tag: 'esp32-alarm',
           renotify: true
         });
