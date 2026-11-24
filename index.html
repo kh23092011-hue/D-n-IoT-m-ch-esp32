@@ -2,449 +2,274 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Telemetry Console // AcX - AcY - AcZ - MQ2 - IR</title>
-  <style>
-    /* =====================================================================
-       BÀI TOÁN LƯỢNG GIÁC TRỰC TIẾP TRONG CSS (Tính AcX, AcY từ AcZ)
-       Công thức:
-         ratio     = clamp(|AcZ| / AcZ_ref, 0, 1)
-         theta_rad = acos(ratio)
-         horiz_mag = AcZ_ref * sin(theta_rad)
-         AcX_css   = sign * horiz_mag * cos(azimuth_deg)
-         AcY_css   = sign * horiz_mag * sin(azimuth_deg)
-       ===================================================================== */
-    :root {
-      --acz-ref: 16500;
-      --acz-sign: 1;
-      --ratio: 1;                 /* Được JS cập nhật theo |AcZ| / AcZ_ref */
-      --azimuth-deg: 45deg;       /* Góc chia trục X/Y (45deg -> cos=sin=0.7071) */
-
-      --theta-rad: acos(var(--ratio));
-      --horiz-mag: calc(var(--acz-ref) * sin(var(--theta-rad)));
-      --acx-css: calc(var(--acz-sign) * var(--horiz-mag) * cos(var(--azimuth-deg)));
-      --acy-css: calc(var(--acz-sign) * var(--horiz-mag) * sin(var(--azimuth-deg)));
-
-      --bg-main: #080c14;
-      --bg-panel: #101726;
-      --bg-card: #162033;
-      --border-line: #25344f;
-      --text-main: #e6eef8;
-      --text-sub: #93a6c4;
-      --cyan: #22d3ee;
-      --green: #22c55e;
-      --red: #ef4444;
-    }
-
-    * {
-      box-sizing: border-box;
-      font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
-    }
-
-    body {
-      margin: 0;
-      padding: 24px;
-      background:
-        radial-gradient(circle at 12% 8%, rgba(34, 211, 238, 0.09), transparent 38%),
-        var(--bg-main);
-      color: var(--text-main);
-    }
-
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 12px;
-      background: var(--bg-panel);
-      border: 1px solid var(--border-line);
-      border-radius: 10px;
-      padding: 16px 20px;
-      margin-bottom: 18px;
-    }
-
-    .header h1 {
-      margin: 0;
-      font-size: 1.15rem;
-      color: var(--cyan);
-    }
-
-    .header p {
-      margin: 4px 0 0;
-      font-size: 0.82rem;
-      color: var(--text-sub);
-    }
-
-    .badge {
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 0.8rem;
-      font-weight: 700;
-      color: var(--cyan);
-      background: rgba(34, 211, 238, 0.12);
-      border: 1px solid rgba(34, 211, 238, 0.45);
-    }
-
-    .grid-3 {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 16px;
-      margin-bottom: 18px;
-    }
-
-    .grid-5 {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-      gap: 12px;
-      margin-top: 12px;
-    }
-
-    .card, .limit-box {
-      background: var(--bg-card);
-      border: 1px solid var(--border-line);
-      border-radius: 10px;
-      padding: 16px;
-      transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .card-top {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.78rem;
-      color: var(--text-sub);
-      text-transform: uppercase;
-      margin-bottom: 8px;
-    }
-
-    .val {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: #f8fafc;
-    }
-
-    .limit-box .val {
-      font-size: 1.2rem;
-      margin-top: 6px;
-    }
-
-    .sub {
-      margin-top: 6px;
-      font-size: 0.78rem;
-      color: var(--text-sub);
-    }
-
-    .status {
-      margin-top: 12px;
-      padding-top: 10px;
-      border-top: 1px solid var(--border-line);
-      font-size: 0.84rem;
-      font-weight: 700;
-      color: var(--green);
-    }
-
-    /* Trạng thái cảnh báo đồng nhất cho mọi cảm biến & trục */
-    .card.alert, .limit-box.alert {
-      background: #2b0b10;
-      border-color: var(--red);
-      box-shadow: 0 0 18px rgba(239, 68, 68, 0.32);
-    }
-
-    .card.alert .val,
-    .card.alert .status,
-    .limit-box.alert .val,
-    .limit-box.alert .status {
-      color: #fca5a5;
-    }
-
-    .panel {
-      background: var(--bg-panel);
-      border: 1px solid var(--border-line);
-      border-radius: 10px;
-      padding: 18px;
-      margin-bottom: 18px;
-    }
-
-    .panel h2 {
-      margin: 0 0 8px;
-      font-size: 0.96rem;
-      color: var(--cyan);
-    }
-
-    .formula-box {
-      background: #0b111d;
-      border: 1px solid var(--border-line);
-      border-radius: 8px;
-      padding: 12px 14px;
-      font-size: 0.8rem;
-      line-height: 1.6;
-      color: #cbd5e1;
-      overflow-x: auto;
-    }
-  </style>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Trạm Giám Sát Địa Chấn & Cháy Nổ ESP32</title>
+  
+  <!-- Firebase App & Database (phiên bản CDN cực nhẹ) -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --text: #f8fafc;
+      --accent: #38bdf8;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --success: #10b981;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 15px; display: flex; flex-direction: column; gap: 15px; }
+
+    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 10px; }
+    h1 { font-size: 1.2rem; color: var(--accent); }
+    
+    .btn-notif {
+      background: #334155; color: #fff; border: none; padding: 8px 12px;
+      border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: 0.2s;
+    }
+    .btn-notif:hover { background: #475569; }
+
+    /* Grid layout phản hồi nhanh */
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+    .card { background: var(--card); border-radius: 8px; padding: 12px; text-align: center; border: 1px solid #334155; }
+    .card h3 { font-size: 0.8rem; color: #94a3b8; margin-bottom: 5px; }
+    .card .val { font-size: 1.5rem; font-weight: bold; color: var(--text); }
+    
+    /* Trạng thái báo động */
+    .status-box { padding: 10px; border-radius: 6px; font-weight: bold; text-align: center; font-size: 1.1rem; }
+    .status-normal { background: rgba(16, 185, 129, 0.2); color: var(--success); border: 1px solid var(--success); }
+    .status-alarm { background: rgba(239, 68, 68, 0.2); color: var(--danger); border: 1px solid var(--danger); animation: pulse 1s infinite alternate; }
+
+    @keyframes pulse { from { opacity: 0.7; } to { opacity: 1; } }
+
+    /* Khung vẽ mô phỏng tòa nhà & đồ thị */
+    .view-section { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+    .canvas-container { background: var(--card); border-radius: 8px; padding: 10px; border: 1px solid #334155; text-align: center; }
+    .canvas-container h4 { font-size: 0.85rem; color: #94a3b8; margin-bottom: 8px; }
+    canvas { background: #090d16; border-radius: 4px; width: 100%; height: 200px; }
+  </style>
 </head>
 <body>
-  <div class="header">
-    <div>
-      <h1>TRẠM CẢNH BÁO SỚM IOT // LƯỢNG GIÁC AcX · AcY · AcZ</h1>
-      <p>Firebase Node: <code>SensorData</code> · Kiểm tra ngưỡng an toàn <code>+N &gt; x &gt; -N</code> cho mọi kênh</p>
-    </div>
-    <div class="badge" id="connBadge">FIREBASE: CONNECTING</div>
-  </div>
 
-  <!-- 3 THẺ CẢM BIẾN CHÍNH -->
-  <div class="grid-3">
-    <div class="card" id="imuCard">
-      <div class="card-top">
-        <span>MPU6050 · AcZ &amp; Góc</span>
-        <span>IMU</span>
-      </div>
-      <div class="val" id="aczVal">--</div>
-      <div class="sub" id="angleSub">Góc θ: --° | Vùng an toàn: --</div>
-      <div class="status" id="imuStatus">Đang chờ dữ liệu...</div>
-    </div>
+  <header>
+    <h1>HỆ THỐNG GIÁM SÁT ĐIỆN TỬ (ESP32)</h1>
+    <button class="btn-notif" onclick="requestNotificationPermission()">🔔 Bật thông báo ĐTDĐ</button>
+  </header>
 
-    <div class="card" id="gasCard">
-      <div class="card-top">
-        <span>Khí Gas &amp; Khói</span>
-        <span>MQ-2</span>
-      </div>
-      <div class="val" id="gasVal">--</div>
-      <div class="sub" id="gasLimitSub">Ngưỡng an toàn: &lt; --</div>
-      <div class="status" id="gasStatus">Đang chờ dữ liệu...</div>
-    </div>
+  <!-- Thẻ trạng thái tổng -->
+  <div id="alarmStatus" class="status-box status-normal">AN TOÀN</div>
 
-    <div class="card" id="fireCard">
-      <div class="card-top">
-        <span>Cảm Biến Lửa</span>
-        <span>IR</span>
-      </div>
-      <div class="val" id="fireVal">--</div>
-      <div class="sub">Tín hiệu số: 1 (Phát hiện lửa) / 0 (An toàn)</div>
-      <div class="status" id="fireStatus">Đang chờ dữ liệu...</div>
+  <!-- Grid thẻ chỉ số -->
+  <div class="grid">
+    <div class="card">
+      <h3>GIA TỐC (a_xy)</h3>
+      <div class="val" id="valAcc">0.000 g</div>
+    </div>
+    <div class="card">
+      <h3>KHÍ GAS (MQ-2)</h3>
+      <div class="val" id="valMq2">0</div>
+    </div>
+    <div class="card">
+      <h3>CẢNH BÁO LỬA</h3>
+      <div class="val" id="valFire" style="color: var(--success);">KHÔNG</div>
     </div>
   </div>
 
-  <!-- BẢNG TÍNH AcX, AcY, AcZ VÀ NGƯỠNG +N > x > -N -->
-  <div class="panel">
-    <h2>BÀI TOÁN TÍNH AcX, AcY TỪ AcZ &amp; KIỂM TRA NGƯỠNG (+N &gt; x &gt; -N)</h2>
-    <div class="formula-box">
-      <div><strong>CSS Trig:</strong> theta = acos(ratio) | horiz = AcZ_ref * sin(theta) | AcX = sign * horiz * cos(azim) | AcY = sign * horiz * sin(azim)</div>
-      <div id="liveMathText"><strong>JS Live:</strong> Đang chờ dữ liệu từ Firebase...</div>
+  <!-- Phần đồ thị và mô phỏng trực quan -->
+  <div class="view-section">
+    <!-- Mô phỏng tòa nhà nghiêng theo thời gian thực -->
+    <div class="canvas-container">
+      <h4>MÔ PHỎNG TÒA NHÀ (NGHIÊNG THEO RUNG ĐỘNG)</h4>
+      <canvas id="buildingCanvas"></canvas>
     </div>
 
-    <div class="grid-5">
-      <div class="limit-box" id="boxAcX">
-        <div class="card-top"><span>AcX (Ước lượng)</span><span>+N &gt; x &gt; -N</span></div>
-        <div class="val" id="acxOut">--</div>
-        <div class="sub" id="acxRange">Giới hạn: --</div>
-        <div class="status" id="acxStatus">--</div>
-      </div>
-
-      <div class="limit-box" id="boxAcY">
-        <div class="card-top"><span>AcY (Ước lượng)</span><span>+N &gt; y &gt; -N</span></div>
-        <div class="val" id="acyOut">--</div>
-        <div class="sub" id="acyRange">Giới hạn: --</div>
-        <div class="status" id="acyStatus">--</div>
-      </div>
-
-      <div class="limit-box" id="boxAcZ">
-        <div class="card-top"><span>AcZ (Thực tế)</span><span>+N &gt; Δz &gt; -N</span></div>
-        <div class="val" id="aczOut">--</div>
-        <div class="sub" id="aczRange">Giới hạn ΔAcZ: --</div>
-        <div class="status" id="aczStatus">--</div>
-      </div>
-
-      <div class="limit-box" id="boxGas">
-        <div class="card-top"><span>MQ-2 Gas</span><span>x &lt; Max</span></div>
-        <div class="val" id="gasOut">--</div>
-        <div class="sub" id="gasRange">Giới hạn: &lt; --</div>
-        <div class="status" id="gasBoxStatus">--</div>
-      </div>
-
-      <div class="limit-box" id="boxFire">
-        <div class="card-top"><span>Cảm biến lửa</span><span>IR == 0</span></div>
-        <div class="val" id="fireOut">--</div>
-        <div class="sub">Giới hạn: Không có lửa</div>
-        <div class="status" id="fireBoxStatus">--</div>
-      </div>
+    <!-- Đồ thị sóng dao động nhẹ cho máy yếu -->
+    <div class="canvas-container">
+      <h4>ĐỒ THỊ DAO ĐỘNG GIA TỐC (a_xy)</h4>
+      <canvas id="chartCanvas"></canvas>
     </div>
   </div>
 
   <script>
-    // =====================================================================
-    // CÁC THÔNG SỐ NGƯỠNG CÓ THỂ ĐIỀU CHỈNH (+N > x > -N)
-    // Vượt qua +N hoặc nhỏ hơn -N (tức |x| >= N) sẽ bật cảnh báo như lửa
-    // =====================================================================
-    const LIMITS = {
-      aczStatic: 16500,          // Mốc AcZ chuẩn khi mô hình nằm phẳng
-      acxLimitN: 4500,           // Giới hạn +N > AcX > -N (|AcX| >= 4500 -> cảnh báo)
-      acyLimitN: 4500,           // Giới hạn +N > AcY > -N (|AcY| >= 4500 -> cảnh báo)
-      aczDeltaLimitN: 1500,      // Giới hạn +N > (AcZ - AcZ_ref) > -N (|ΔAcZ| >= 1500 -> cảnh báo)
-      tiltThresholdDeg: 12,      // Cảnh báo nếu góc nghiêng >= 12 độ
-      gasMaxLimit: 1800,         // Ngưỡng khí gas MQ-2 (>= 1800 -> cảnh báo)
-      azimuthDeg: 45             // Góc chia AcX và AcY bằng lượng giác (cos, sin)
-    };
-
-    // Hàm kiểm tra điều kiện nằm trong khoảng mở (+N > x > -N)
-    function isInsideOpenBand(val, limitN) {
-      return limitN > val && val > -limitN;
-    }
-
-    // Bài toán lượng giác tính AcX và AcY trực tiếp từ AcZ
-    function solveAxesFromAcZ(aczRaw, cfg) {
-      const acz = Number(aczRaw);
-      const safeAcZ = Number.isFinite(acz) ? acz : cfg.aczStatic;
-      const absAcZ = Math.abs(safeAcZ);
-
-      // Tỷ lệ chuẩn hóa [0, 1] cho hàm arccos
-      const ratio = Math.max(0, Math.min(1, absAcZ / cfg.aczStatic));
-
-      // Góc nghiêng theta theo radian và độ
-      const tiltRad = Math.acos(ratio);
-      const tiltDeg = (tiltRad * 180) / Math.PI;
-
-      // Độ lớn thành phần ngang nhờ hàm sin(theta)
-      const horizMag = cfg.aczStatic * Math.sin(tiltRad);
-
-      // Góc phương vị quy đổi sang radian để tính cos và sin
-      const azimRad = (cfg.azimuthDeg * Math.PI) / 180;
-      const sign = safeAcZ >= 0 ? 1 : -1;
-
-      const acx = Math.round(sign * horizMag * Math.cos(azimRad));
-      const acy = Math.round(sign * horizMag * Math.sin(azimRad));
-      const deltaAcZ = Math.round(safeAcZ - cfg.aczStatic);
-
-      return {
-        acz: safeAcZ,
-        ratio,
-        tiltDeg,
-        horizMag: Math.round(horizMag),
-        acx,
-        acy,
-        deltaAcZ
-      };
-    }
-
-    // Đánh giá toàn bộ cảm biến và đối chiếu ngưỡng
-    function evaluateAll(data) {
-      const aczRaw = data.AcZ ?? data.VibrationZ ?? data.acz ?? LIMITS.aczStatic;
-      const gasRaw = Number(data.GasLevel ?? data.Gas ?? data.mq2 ?? 0);
-      const fireRaw = data.FireAlert ?? data.Fire ?? data.fire ?? 0;
-
-      const trig = solveAxesFromAcZ(aczRaw, LIMITS);
-
-      const acxSafe = isInsideOpenBand(trig.acx, LIMITS.acxLimitN);
-      const acySafe = isInsideOpenBand(trig.acy, LIMITS.acyLimitN);
-      const aczDeltaSafe = isInsideOpenBand(trig.deltaAcZ, LIMITS.aczDeltaLimitN);
-      const tiltSafe = trig.tiltDeg < LIMITS.tiltThresholdDeg;
-
-      const imuAlert = !(acxSafe && acySafe && aczDeltaSafe && tiltSafe);
-      const gasAlert = !Number.isFinite(gasRaw) || gasRaw >= LIMITS.gasMaxLimit;
-      const fireAlert = fireRaw === 1 || fireRaw === "1" || fireRaw === true;
-
-      return {
-        trig,
-        acxAlert: !acxSafe,
-        acyAlert: !acySafe,
-        aczAlert: !(aczDeltaSafe && tiltSafe),
-        imuAlert,
-        gasRaw,
-        gasAlert,
-        fireAlert
-      };
-    }
-
-    function toggleAlert(el, isAlert) {
-      if (el) el.classList.toggle("alert", Boolean(isAlert));
-    }
-
-    function renderDashboard(state) {
-      const { trig, acxAlert, acyAlert, aczAlert, imuAlert, gasRaw, gasAlert, fireAlert } = state;
-
-      // Đồng bộ biến CSS để CSS tự thực hiện phép tính lượng giác acos(), sin(), cos()
-      const rootStyle = document.documentElement.style;
-      rootStyle.setProperty("--acz-ref", String(LIMITS.aczStatic));
-      rootStyle.setProperty("--acz-sign", String(trig.acz >= 0 ? 1 : -1));
-      rootStyle.setProperty("--ratio", String(trig.ratio));
-      rootStyle.setProperty("--azimuth-deg", `${LIMITS.azimuthDeg}deg`);
-
-      // Cập nhật dòng công thức trực tiếp
-      document.getElementById("liveMathText").innerHTML =
-        `<strong>JS Live:</strong> AcZ=${trig.acz} | ratio=${trig.ratio.toFixed(4)} | θ=${trig.tiltDeg.toFixed(2)}° | horiz=${trig.horizMag} → <strong>AcX=${trig.acx}</strong>, <strong>AcY=${trig.acy}</strong> (ΔAcZ=${trig.deltaAcZ})`;
-
-      // Thẻ IMU tổng hợp
-      toggleAlert(document.getElementById("imuCard"), imuAlert);
-      document.getElementById("aczVal").textContent = `${trig.acz}`;
-      document.getElementById("angleSub").textContent =
-        `Góc θ: ${trig.tiltDeg.toFixed(1)}° (< ${LIMITS.tiltThresholdDeg}°) | ΔAcZ: ${trig.deltaAcZ}`;
-      document.getElementById("imuStatus").textContent =
-        imuAlert ? "CẢNH BÁO VƯỢT NGƯỠNG RUNG/NGHIÊNG!" : "AN TOÀN (TRONG NGƯỠNG)";
-
-      // Thẻ MQ-2 Gas
-      toggleAlert(document.getElementById("gasCard"), gasAlert);
-      document.getElementById("gasVal").textContent = `${gasRaw}`;
-      document.getElementById("gasLimitSub").textContent = `Ngưỡng an toàn: < ${LIMITS.gasMaxLimit}`;
-      document.getElementById("gasStatus").textContent =
-        gasAlert ? "CẢNH BÁO KHÍ GAS VƯỢT NGƯỠNG!" : "AN TOÀN (KHÍ GAS BÌNH THƯỜNG)";
-
-      // Thẻ Lửa IR
-      toggleAlert(document.getElementById("fireCard"), fireAlert);
-      document.getElementById("fireVal").textContent = fireAlert ? "CÓ LỬA" : "AN TOÀN";
-      document.getElementById("fireStatus").textContent =
-        fireAlert ? "CẢNH BÁO PHÁT HIỆN LỬA!" : "AN TOÀN (KHÔNG CÓ LỬA)";
-
-      // Ô chi tiết AcX (+N > x > -N)
-      toggleAlert(document.getElementById("boxAcX"), acxAlert);
-      document.getElementById("acxOut").textContent = `${trig.acx}`;
-      document.getElementById("acxRange").textContent = `Vùng: +${LIMITS.acxLimitN} > x > -${LIMITS.acxLimitN}`;
-      document.getElementById("acxStatus").textContent = acxAlert ? "VƯỢT NGƯỠNG" : "HỢP LỆ";
-
-      // Ô chi tiết AcY (+N > y > -N)
-      toggleAlert(document.getElementById("boxAcY"), acyAlert);
-      document.getElementById("acyOut").textContent = `${trig.acy}`;
-      document.getElementById("acyRange").textContent = `Vùng: +${LIMITS.acyLimitN} > y > -${LIMITS.acyLimitN}`;
-      document.getElementById("acyStatus").textContent = acyAlert ? "VƯỢT NGƯỠNG" : "HỢP LỆ";
-
-      // Ô chi tiết AcZ (+N > Δz > -N)
-      toggleAlert(document.getElementById("boxAcZ"), aczAlert);
-      document.getElementById("aczOut").textContent = `${trig.deltaAcZ}`;
-      document.getElementById("aczRange").textContent = `Vùng Δz: +${LIMITS.aczDeltaLimitN} > Δz > -${LIMITS.aczDeltaLimitN}`;
-      document.getElementById("aczStatus").textContent = aczAlert ? "VƯỢT NGƯỠNG" : "HỢP LỆ";
-
-      // Ô chi tiết Gas
-      toggleAlert(document.getElementById("boxGas"), gasAlert);
-      document.getElementById("gasOut").textContent = `${gasRaw}`;
-      document.getElementById("gasRange").textContent = `Vùng: x < ${LIMITS.gasMaxLimit}`;
-      document.getElementById("gasBoxStatus").textContent = gasAlert ? "VƯỢT NGƯỠNG" : "HỢP LỆ";
-
-      // Ô chi tiết Lửa
-      toggleAlert(document.getElementById("boxFire"), fireAlert);
-      document.getElementById("fireOut").textContent = fireAlert ? "1 (CHÁY)" : "0 (TẮT)";
-      document.getElementById("fireBoxStatus").textContent = fireAlert ? "BÁO ĐỘNG" : "HỢP LỆ";
-    }
-
-    // Kết nối Firebase Realtime Database từ URL của bạn
+    // =========================================================================
+    // 1. CẤU HÌNH FIREBASE REALTIME DATABASE
+    // =========================================================================
     const firebaseConfig = {
       databaseURL: "https://dong-dat-esp32-default-rtdb.asia-southeast1.firebasedatabase.app/"
     };
-
     firebase.initializeApp(firebaseConfig);
-    const badge = document.getElementById("connBadge");
     const dbRef = firebase.database().ref("SensorData");
 
-    dbRef.on("value", (snapshot) => {
-      badge.textContent = "FIREBASE: LIVE";
+    // =========================================================================
+    // 2. KHỞI TẠO CANVAS (VẼ TÒA NHÀ & ĐỒ THỊ)
+    // =========================================================================
+    const buildCanvas = document.getElementById('buildingCanvas');
+    const bCtx = buildCanvas.getContext('2d');
+    const chartCanvas = document.getElementById('chartCanvas');
+    const cCtx = chartCanvas.getContext('2d');
+
+    // Set kích thước thực canvas
+    function resizeCanvas() {
+      buildCanvas.width = buildCanvas.clientWidth;
+      buildCanvas.height = buildCanvas.clientHeight;
+      chartCanvas.width = chartCanvas.clientWidth;
+      chartCanvas.height = chartCanvas.clientHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    let accHistory = new Array(50).fill(0); // Lưu 50 điểm dữ liệu đồ thị
+    let currentTiltAngle = 0; // Góc nghiêng quy đổi từ a_xy (radian hoặc độ)
+
+    // =========================================================================
+    // 3. VẼ MÔ PHỎNG TÒA NHÀ NGHIÊNG (RENDER LOOP NHẸ MƯỢT)
+    // =========================================================================
+    function drawBuilding(angleDeg) {
+      const w = buildCanvas.width;
+      const h = buildCanvas.height;
+      bCtx.clearRect(0, 0, w, h);
+
+      // Vẽ mặt đất
+      bCtx.strokeStyle = '#475569';
+      bCtx.lineWidth = 2;
+      bCtx.beginPath();
+      bCtx.moveTo(10, h - 20);
+      bCtx.lineTo(w - 10, h - 20);
+      bCtx.stroke();
+
+      // Tọa độ móng tòa nhà
+      const baseX = w / 2;
+      const baseY = h - 20;
+      const bWidth = 60;
+      const bHeight = 120;
+
+      bCtx.save();
+      // Dời gốc tọa độ về tâm móng để xoay nghiêng
+      bCtx.translate(baseX, baseY);
+      bCtx.rotate((angleDeg * Math.PI) / 180); // Đổi độ sang Radian
+
+      // Vẽ thân tòa nhà
+      bCtx.fillStyle = '#334155';
+      bCtx.strokeStyle = '#38bdf8';
+      bCtx.lineWidth = 2;
+      bCtx.fillRect(-bWidth / 2, -bHeight, bWidth, bHeight);
+      bCtx.strokeRect(-bWidth / 2, -bHeight, bWidth, bHeight);
+
+      // Vẽ cửa sổ nhỏ
+      bCtx.fillStyle = '#94a3b8';
+      for (let row = 1; row <= 4; row++) {
+        for (let col = -1; col <= 1; col += 2) {
+          bCtx.fillRect(col * 12 - 5, -bHeight + row * 22, 10, 12);
+        }
+      }
+
+      bCtx.restore();
+    }
+
+    // =========================================================================
+    // 4. VẼ ĐỒ THỊ SÓNG RUNG ĐỘNG
+    // =========================================================================
+    function drawChart() {
+      const w = chartCanvas.width;
+      const h = chartCanvas.height;
+      cCtx.clearRect(0, 0, w, h);
+
+      cCtx.strokeStyle = '#38bdf8';
+      cCtx.lineWidth = 1.5;
+      cCtx.beginPath();
+
+      const step = w / (accHistory.length - 1);
+      for (let i = 0; i < accHistory.length; i++) {
+        // Ánh xạ a_xy (0.0 -> 1.0g) vào chiều cao canvas
+        const val = Math.min(accHistory[i], 1.0); 
+        const y = h - 10 - (val * (h - 20));
+        const x = i * step;
+        if (i === 0) cCtx.moveTo(x, y);
+        else cCtx.lineTo(x, y);
+      }
+      cCtx.stroke();
+    }
+
+    // =========================================================================
+    // 5. ĐỒNG BỘ DỮ LIỆU TỪ FIREBASE REALTIME
+    // =========================================================================
+    let lastAlarmState = false;
+
+    dbRef.on('value', (snapshot) => {
       const data = snapshot.val();
       if (!data) return;
 
-      const evaluated = evaluateAll(data);
-      renderDashboard(evaluated);
-    }, () => {
-      badge.textContent = "FIREBASE: ERROR";
+      const a_xy = data.a_xy || 0.0;
+      const mq2 = data.mq2 || 0;
+      const fire = data.fire || false;
+      const alarm = data.alarm || false;
+
+      // Cập nhật thẻ HTML
+      document.getElementById('valAcc').innerText = a_xy.toFixed(3) + ' g';
+      document.getElementById('valMq2').innerText = mq2;
+      
+      const fireEl = document.getElementById('valFire');
+      fireEl.innerText = fire ? 'CÓ LỬA!' : 'KHÔNG';
+      fireEl.style.color = fire ? 'var(--danger)' : 'var(--success)';
+
+      const statusEl = document.getElementById('alarmStatus');
+      if (alarm) {
+        statusEl.innerText = '⚠️ CẢNH BÁO BỎNG / ĐỘNG ĐẤT / NGUY HIỂM!';
+        statusEl.className = 'status-box status-alarm';
+      } else {
+        statusEl.innerText = 'AN TOÀN';
+        statusEl.className = 'status-box status-normal';
+      }
+
+      // Tính góc nghiêng mô phỏng: 1g gia tốc ngang tương ứng nghiêng ~30 độ (quy đổi đơn giản)
+      currentTiltAngle = (a_xy * 40).toFixed(1); 
+      drawBuilding(currentTiltAngle);
+
+      // Cập nhật đồ thị
+      accHistory.push(a_xy);
+      accHistory.shift();
+      drawChart();
+
+      // Bật thông báo đẩy nếu chuyển trạng thái sang báo động
+      if (alarm && !lastAlarmState) {
+        sendPushNotification(a_xy, mq2, fire);
+      }
+      lastAlarmState = alarm;
     });
+
+    // =========================================================================
+    // 6. THÔNG BÁO VỀ ĐIỆN THOẠI / TRÌNH DUYỆT (WEB NOTIFICATION API)
+    // =========================================================================
+    function requestNotificationPermission() {
+      if ('Notification' in window) {
+        Notification.requestPermission().then(permission => {
+          if (permission === 'granted') {
+            alert('Đã bật quyền thông báo thành công!');
+          } else {
+            alert('Bạn đã từ chối quyền thông báo.');
+          }
+        });
+      } else {
+        alert('Trình duyệt này không hỗ trợ thông báo Web.');
+      }
+    }
+
+    function sendPushNotification(acc, mq, isFire) {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        let text = `Gia tốc: ${acc}g | Gas: ${mq}`;
+        if (isFire) text += ' | CÓ LỬA!';
+
+        new Notification('🚨 NGUY HIỂM: CẢNH BÁO TỪ ESP32!', {
+          body: text,
+          icon: 'https://cdn-icons-png.flaticon.com/512/564/564619.png',
+          tag: 'esp32-alarm',
+          renotify: true
+        });
+      }
+    }
   </script>
 </body>
 </html>
