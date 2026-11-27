@@ -7,6 +7,7 @@
 
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
 
   <style>
     :root {
@@ -51,7 +52,7 @@
 
   <header>
     <h1>HỆ THỐNG GIÁM SÁT RUNG CHẤN & CHÁY NỔ (ESP32)</h1>
-    <button class="btn-notif" onclick="requestNotificationPermission()">🔔 Bật thông báo ĐTDĐ</button>
+    <button class="btn-notif" type="button" onclick="requestNotificationPermission()">🔔 Bật thông báo ĐTDĐ</button>
   </header>
 
   <div id="alarmStatus" class="status-box status-normal">AN TOÀN</div>
@@ -85,13 +86,22 @@
 
   <script>
     // =========================================================================
-    // 1. CẤU HÌNH FIREBASE REALTIME DATABASE
+    // 1. CẤU HÌNH FIREBASE (ĐIỀN ĐỦ THÔNG SỐ TỪ FIREBASE CONSOLE)
     // =========================================================================
     const firebaseConfig = {
-      databaseURL: "https://dong-dat-esp32-default-rtdb.asia-southeast1.firebasedatabase.app/"
+      apiKey: "YOUR_API_KEY",
+      authDomain: "dong-dat-esp32.firebaseapp.com",
+      databaseURL: "https://dong-dat-esp32-default-rtdb.asia-southeast1.firebasedatabase.app/",
+      projectId: "dong-dat-esp32",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId: "YOUR_APP_ID"
     };
+    const VAPID_KEY = "YOUR_WEB_PUSH_VAPID_KEY";
+
     firebase.initializeApp(firebaseConfig);
     const dbRef = firebase.database().ref("SensorData");
+    const tokensRef = firebase.database().ref("fcmTokens");
+    const messaging = firebase.messaging.isSupported() ? firebase.messaging() : null;
 
     // =========================================================================
     // 2. KHỞI TẠO CANVAS
@@ -113,9 +123,9 @@
     // =========================================================================
     // 3. MÔ PHỎNG TÒA NHÀ NGHIÊNG / RUNG LẮC 2 BÊN TỪ a_xy = sqrt(dx^2 + dy^2)
     // =========================================================================
-    let targetAmpDeg = 0;      // Biên độ góc nghiêng tối đa hai bên (độ)
-    let currentAngleDeg = 0;   // Góc nghiêng hiện tại (âm = trái, dương = phải)
-    let swayPhase = 0;         // Pha dao động hình sin
+    let targetAmpDeg = 0;
+    let currentAngleDeg = 0;
+    let swayPhase = 0;
     let isDangerShake = false;
 
     function drawBuilding(angleDeg) {
@@ -128,7 +138,6 @@
       const bWidth = 64;
       const bHeight = 124;
 
-      // Vẽ mặt đất và vạch tâm thẳng đứng (0 độ) tham chiếu
       bCtx.strokeStyle = '#475569';
       bCtx.lineWidth = 2;
       bCtx.beginPath();
@@ -146,7 +155,6 @@
       bCtx.stroke();
       bCtx.restore();
 
-      // Xoay quanh tâm móng
       bCtx.save();
       bCtx.translate(baseX, groundY);
       bCtx.rotate((angleDeg * Math.PI) / 180);
@@ -160,7 +168,6 @@
       bCtx.fillRect(-bWidth / 2, -bHeight, bWidth, bHeight);
       bCtx.strokeRect(-bWidth / 2, -bHeight, bWidth, bHeight);
 
-      // Vẽ các tầng và cửa sổ
       bCtx.fillStyle = '#94a3b8';
       for (let row = 0; row < 4; row++) {
         const yPos = -bHeight + 14 + row * 28;
@@ -169,7 +176,6 @@
       }
       bCtx.restore();
 
-      // Hiển thị góc nghiêng tức thời
       bCtx.fillStyle = isDangerShake ? '#ef4444' : '#38bdf8';
       bCtx.font = 'bold 12px system-ui, sans-serif';
       bCtx.textAlign = 'left';
@@ -248,7 +254,6 @@
         statusEl.className = 'status-box status-normal';
       }
 
-      // Quy đổi độ lớn a_xy sang biên độ lắc 2 bên (giới hạn tối đa 24 độ)
       isDangerShake = a_xy >= 0.25 || alarm;
       targetAmpDeg = a_xy < 0.03 ? 0 : Math.min(a_xy * 45, 24);
 
@@ -263,18 +268,61 @@
     });
 
     // =========================================================================
-    // 6. THÔNG BÁO TRÌNH DUYỆT / ĐIỆN THOẠI
+    // 6. ĐĂNG KÝ FCM TOKEN & THÔNG BÁO TRÌNH DUYỆT / ĐIỆN THOẠI
     // =========================================================================
-    function requestNotificationPermission() {
+    function tokenToKey(token) {
+      return token.replace(/[.$#\[\]]/g, '_');
+    }
+
+    async function saveFcmToken(token) {
+      await tokensRef.child(tokenToKey(token)).set({
+        token,
+        updatedAt: Date.now()
+      });
+    }
+
+    async function requestNotificationPermission() {
       if (!('Notification' in window)) {
         alert('Trình duyệt này không hỗ trợ thông báo Web.');
         return;
       }
-      Notification.requestPermission().then((permission) => {
-        if (permission === 'granted') {
-          alert('Đã bật quyền thông báo thành công!');
-        } else {
-          alert('Quyền thông báo chưa được cấp.');
+
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        alert('Quyền thông báo chưa được cấp.');
+        return;
+      }
+
+      if (messaging && 'serviceWorker' in navigator) {
+        try {
+          const swReg = await navigator.serviceWorker.register('./firebase-messaging-sw.js');
+          const token = await messaging.getToken({
+            vapidKey: VAPID_KEY,
+            serviceWorkerRegistration: swReg
+          });
+          if (token) {
+            await saveFcmToken(token);
+            alert('Đã bật thông báo và lưu Token lên Firebase!');
+            return;
+          }
+        } catch (err) {
+          console.error('Lỗi đăng ký FCM Token:', err);
+        }
+      }
+
+      alert('Đã bật quyền thông báo cục bộ trên trang web!');
+    }
+
+    if (messaging) {
+      messaging.onMessage((payload) => {
+        const d = payload.data || {};
+        const n = payload.notification || {};
+        if (Notification.permission === 'granted') {
+          new Notification(d.title || n.title || '🚨 CẢNH BÁO TỪ ESP32!', {
+            body: d.body || n.body || 'Phát hiện tín hiệu cảnh báo!',
+            tag: 'esp32-alarm',
+            renotify: true
+          });
         }
       });
     }
