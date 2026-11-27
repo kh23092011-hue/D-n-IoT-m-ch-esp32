@@ -1,55 +1,30 @@
-importScripts("https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js");
-importScripts("https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js");
+importScripts("https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js");
 
 firebase.initializeApp({
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyBAAjIFqe6VmPs6HV6payTUWTL4CG1sXDM",
+  authDomain: "dong-dat-esp32.firebaseapp.com",
+  databaseURL: "https://dong-dat-esp32-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "dong-dat-esp32",
+  storageBucket: "dong-dat-esp32.firebasestorage.app",
+  messagingSenderId: "523130855246",
+  appId: "1:523130855246:web:a67a6c58f78853e29e481f",
+  measurementId: "G-4TDTF9JLW6"
 });
 
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  const data = payload.data || {};
-  const notification = payload.notification || {};
+  const d = payload.data || {};
+  const n = payload.notification || {};
 
-  const title = data.title || notification.title || "CẢNH BÁO HỆ THỐNG ESP32";
-  const body = data.body || notification.body || "Phát hiện tín hiệu vượt ngưỡng từ cảm biến.";
-  const targetUrl = data.url || "./";
+  const title = d.title || n.title || "🚨 CẢNH BÁO TỪ ESP32!";
+  const body = d.body || n.body || "Phát hiện rung chấn / khí gas / lửa vượt ngưỡng.";
 
-  const options = {
+  return self.registration.showNotification(title, {
     body,
-    icon: "./icon-192.png",
-    badge: "./badge-72.png",
     vibrate: [300, 100, 300, 100, 400],
-    requireInteraction: true,
-    tag: data.alertType || "esp32-alert",
-    renotify: true,
-    data: { url: targetUrl }
-  };
-
-  return self.registration.showNotification(title, options);
-});
-
-self.addEventListener("notificationclick", (event) => {
-  event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url) || "./";
-
-  event.waitUntil(
-    clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
-      for (const client of clientList) {
-        if ("focus" in client) {
-          client.navigate(targetUrl);
-          return client.focus();
-        }
-      }
-      if (clients.openWindow) {
-        return clients.openWindow(targetUrl);
-      }
-    })
-  );
+    tag: "esp32-alarm",
+    renotify: true
+  });
 });
